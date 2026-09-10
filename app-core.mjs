@@ -1,5 +1,3 @@
-import './ui-polish.js';
-
 const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
 const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
 
@@ -20,6 +18,10 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
   };
   window.__familyApiFetchPatched=true;
 }
+
+// В браузере визуальный слой загружается до основной логики app.js.
+// В Node-тестах он не исполняется, потому что DOM там отсутствует.
+if(typeof window!=='undefined') await import('./ui-polish.js');
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
 
