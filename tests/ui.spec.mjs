@@ -15,6 +15,7 @@ test.beforeEach(async({page})=>{
     Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}});
   });
   await page.goto(base);
+  await page.waitForFunction(()=>window.__appReady===true);
 });
 
 test('главная и навигация открывают основные разделы',async({page})=>{
