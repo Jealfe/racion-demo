@@ -37,11 +37,9 @@ if(typeof document!=='undefined'&&!window.__interactionFixes){
   },true);
 
   function specialHash(){return location.hash.startsWith('#thanks=')||location.hash.startsWith('#access=')}
-  const navEntry=performance.getEntriesByType?.('navigation')?.[0];
-  const isReload=navEntry?.type==='reload';
 
-  function restoreAfterReload(){
-    if(!isReload||specialHash())return;
+  function restoreStoredScreen(){
+    if(specialHash())return;
     const target=sessionStorage.getItem(SCREEN_KEY)||'home';
     if(!validScreens.has(target)||target==='home')return;
     let tries=0;
@@ -55,7 +53,7 @@ if(typeof document!=='undefined'&&!window.__interactionFixes){
     },50);
   }
 
-  if(!isReload&&!specialHash())sessionStorage.setItem(SCREEN_KEY,'home');
-  restoreAfterReload();
+  if(!sessionStorage.getItem(SCREEN_KEY)&&!specialHash())sessionStorage.setItem(SCREEN_KEY,'home');
+  restoreStoredScreen();
   window.__interactionFixes=true;
 }
