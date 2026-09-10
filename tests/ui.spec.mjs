@@ -5,7 +5,7 @@ const base='http://127.0.0.1:8000/';
 test.beforeEach(async({page})=>{
   await page.addInitScript(()=>{
     localStorage.clear();
-    localStorage.setItem('us_profile',JSON.stringify({name:'Алекс'}));
+    if(!sessionStorage.getItem('test_no_profile')) localStorage.setItem('us_profile',JSON.stringify({name:'Алекс'}));
     Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}});
   });
   await page.goto(base);
@@ -22,7 +22,7 @@ test('главная и навигация открывают основные �
 });
 
 test('при первом входе можно выбрать автора устройства',async({page})=>{
-  await page.evaluate(()=>localStorage.removeItem('us_profile'));
+  await page.evaluate(()=>{sessionStorage.setItem('test_no_profile','1');localStorage.removeItem('us_profile')});
   await page.reload();
   await expect(page.locator('#profileSetup')).toHaveClass(/show/);
   await page.getByRole('button',{name:'❤️ Жена'}).click();
@@ -70,7 +70,7 @@ test('новая запись другого автора включает ла�
   await expect(page.locator('#activitySignal')).toHaveClass(/show/);
   await expect(page.locator('[data-open="wishlist"] .notify-badge')).toHaveClass(/show/);
   await expect(page.locator('#activityText')).toContainText('Хотелки: 1');
-  await page.getByRole('button',{name:/Хотелки/}).click();
+  await page.locator('[data-open="wishlist"]').click();
   await expect(page.locator('#wishList')).toContainText('Новая хотелка от жены');
   await expect(page.locator('#wishList')).toContainText('Жена');
   await expect(page.locator('[data-open="wishlist"] .notify-badge')).not.toHaveClass(/show/);
