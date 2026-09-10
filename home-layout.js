@@ -2,20 +2,25 @@ if(typeof document!=='undefined'){
 const $=s=>document.querySelector(s);
 const css=document.createElement('style');css.id='home-layout-styles';css.textContent=`
 /* Компактная главная */
-#home .hero{min-height:0!important;padding:13px 16px 15px!important;border-radius:23px!important}
-#home .hero-top{margin:0 0 8px!important;min-height:28px!important}
-#home .hero h1{font-size:32px!important;line-height:1!important;letter-spacing:-.035em!important}
+#home .hero{min-height:0!important;padding:12px 15px 14px!important;border-radius:22px!important}
+#home .hero-top{margin:0 0 7px!important;min-height:30px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important}
+#home .hero h1{font-size:31px!important;line-height:1!important;letter-spacing:-.035em!important}
 #home .hero>p{display:none!important}
 #home .brand{font-size:10px!important;letter-spacing:.07em!important}
-#home .today{font-size:10px!important;padding:6px 9px!important}
-#home .quote{margin-top:10px!important;padding:11px 13px!important;font-size:11px!important;border-radius:15px!important}
+#home .today{font-size:10px!important;padding:6px 9px!important;white-space:nowrap!important}
+#home .quote{margin-top:9px!important;padding:11px 13px!important;font-size:11px!important;border-radius:15px!important}
 #home .section-title{margin-top:18px!important}
-@media(max-width:380px){#home .hero{padding:12px 14px 14px!important;border-radius:21px!important}#home .hero-top{margin-bottom:7px!important}#home .hero h1{font-size:29px!important}}
+.hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-left:auto}
+.settings-gear{border:0;background:rgba(255,255,255,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);width:30px;height:30px;min-width:30px;border-radius:10px;display:grid;place-items:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .18s ease,background .18s ease;padding:0}.settings-gear:active{transform:scale(.91);background:rgba(255,255,255,.26)}
+@media(max-width:380px){#home .hero{padding:11px 13px 13px!important;border-radius:20px!important}#home .hero-top{margin-bottom:6px!important}#home .hero h1{font-size:28px!important}.hero-actions{gap:4px}.settings-gear{width:29px;height:29px;min-width:29px}}
 
-/* Профиль + статус + настройки */
-.identity-bar{gap:7px!important}.identity-actions{display:flex;align-items:center;gap:6px;margin-left:auto;min-width:0}.identity-actions .local-pill{font-size:9px!important;padding:7px 9px!important;max-width:145px;overflow:hidden;text-overflow:ellipsis}.settings-gear{border:0;background:#fff;width:34px;height:34px;min-width:34px;border-radius:12px;display:grid;place-items:center;font-size:16px;cursor:pointer;box-shadow:0 5px 16px rgba(35,30,25,.05);transition:transform .18s ease,background .18s ease}.settings-gear:active{transform:scale(.92);background:#f1ece8}
+/* Профиль и статус больше не занимают место на главной */
+.identity-bar{display:none!important}
+.settings-account{display:grid;gap:7px;margin:13px 0 2px;padding:11px;background:#faf7f4;border-radius:15px;border:1px solid #eee6df}
+.settings-account .who-btn{width:100%!important;justify-content:flex-start!important;box-shadow:none!important;background:#fff!important;border:1px solid #eee6df!important}
+.settings-account .local-pill{display:block!important;width:100%!important;text-align:center!important;font-size:9px!important;padding:8px 10px!important;max-width:none!important;overflow:visible!important;background:#ebe6df;border-radius:999px;color:#777}
 
-/* Что нового: в начале, но не забирает экран */
+/* Что нового: в начале, максимум 3 события */
 #familyActivity{margin:10px 4px 0!important;padding:0!important;border-radius:17px!important;overflow:hidden!important;background:#fff!important}
 #familyActivity .activity-head{margin:0!important;padding:11px 12px!important;cursor:pointer;user-select:none;align-items:center!important}
 #familyActivity .activity-head h3{font-size:13px!important;display:flex;align-items:center;gap:7px}
@@ -32,10 +37,10 @@ const css=document.createElement('style');css.id='home-layout-styles';css.textCo
 #familyActivity .activity-more{display:none!important}
 #familyActivity.activity-collapsed .activity-list{display:none!important}
 
-/* Служебные кнопки живут только в настройках */
-#familyTools.settings-tools{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin:13px 0 0!important}
+/* Служебные кнопки только в настройках */
+#familyTools.settings-tools{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin:11px 0 0!important}
 .settings-tools .family-tool{width:100%!important;text-align:left!important;border-radius:14px!important;padding:12px 13px!important;font-size:11px!important;box-shadow:none!important;background:#f7f3ef!important}
-.settings-overlay{z-index:310!important}.settings-overlay .modal-card{max-width:340px;text-align:left;padding:19px;border-radius:24px}.settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.settings-head h3{margin:0;font-size:18px}.settings-head button{border:0;width:34px;height:34px;border-radius:50%;background:#f1ece8;font-size:18px;cursor:pointer}.settings-sub{margin:5px 0 0!important;font-size:10px!important;color:#958980!important}.settings-status{margin-top:13px;padding:10px 11px;border-radius:13px;background:#faf7f4;font-size:9px;color:#81756e;line-height:1.45}
+.settings-overlay{z-index:310!important}.settings-overlay .modal-card{max-width:340px;text-align:left;padding:19px;border-radius:24px}.settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.settings-head h3{margin:0;font-size:18px}.settings-head button{border:0;width:34px;height:34px;border-radius:50%;background:#f1ece8;font-size:18px;cursor:pointer}.settings-sub{margin:5px 0 0!important;font-size:10px!important;color:#958980!important}
 `;
 document.head.appendChild(css);
 
@@ -75,18 +80,87 @@ const thoughts=[
 'Самые тёплые слова обычно не требуют красивого повода.',
 'Маленькие совместные решения тоже двигают большую жизнь вперёд.',
 'Иногда лучший вечер — тот, который вообще не пришлось организовывать.',
-'Есть вещи, которые становятся ценными просто потому, что они ваши общие.'
+'Есть вещи, которые становятся ценными просто потому, что они ваши общие.',
+'Планы можно менять. Главное — не терять ощущение, ради чего вы их строили.',
+'Иногда пять минут внимания важнее часа рядом с телефоном в руках.',
+'Хорошо иметь свои маленькие слова, шутки и привычки, понятные только вам.',
+'Даже очень обычный день может быть хорошим, если вечером хочется возвращаться домой.',
+'Не обязательно всё успевать. Можно иногда просто быть вместе.',
+'Пусть сегодня найдётся хотя бы одна мелочь, за которую хочется сказать спасибо.',
+'Совместное решение становится легче, когда каждый чувствует, что его услышали.',
+'Некоторые лучшие моменты невозможно запланировать заранее.',
+'Иногда поддержка — это не совет, а чай и тишина рядом.',
+'Хорошая привычка — чаще замечать то, что обычно принимается как само собой разумеющееся.',
+'Можно быть уставшими и всё равно быть хорошей командой.',
+'Если планы сорвались, это ещё не значит, что вечер испорчен.',
+'Домашние шутки — вполне серьёзная семейная ценность.',
+'Иногда один добрый вопрос меняет настроение целого вечера.',
+'Приятно знать, что есть человек, с которым можно ничего не изображать.',
+'Не обязательно искать особенный день для маленького сюрприза.',
+'Хорошие отношения состоят не только из событий, но и из обычных вторников.',
+'Иногда лучший компромисс — придумать третий вариант, который нравится обоим.',
+'Можно не решать проблему сразу, если сначала нужно просто побыть рядом.',
+'Совместное «помнишь?» со временем становится отдельным видом счастья.',
+'Хорошо, когда можно вместе смеяться даже над неудачным планом.',
+'Маленькие знаки внимания работают лучше, когда они неожиданные.',
+'Иногда стоит выбрать то, что хочется, а не то, что выглядит правильнее.',
+'Самые домашние моменты редко попадают на фотографии, но именно они запоминаются.',
+'Сегодня можно сделать друг для друга что-то совсем простое.',
+'Бывает полезно спросить: «Тебе сейчас помощь нужна или просто послушать?»',
+'Ничего страшного, если ваши планы понятны только вам двоим.',
+'Хорошая совместная жизнь складывается из множества маленьких договорённостей.',
+'Иногда настроение спасает одна смешная фраза в нужный момент.',
+'Можно быть разными и всё равно хотеть двигаться в одну сторону.',
+'Хорошо иногда вспоминать, сколько всего вы уже прошли вместе.',
+'Совместные мечты становятся реальнее, когда их иногда проговаривают вслух.',
+'Не обязательно делать праздник большим, чтобы он был настоящим.',
+'Иногда приятнее всего услышать простое «я подумал о тебе».',
+'Уют — это когда не нужно объяснять, почему сегодня хочется тишины.',
+'Хороший вечер может состоять из еды, дивана и одного нормального фильма.',
+'Можно иногда отложить дела ради разговора, который давно откладывали.',
+'Самое ценное в общих планах — ощущение, что вы строите их вместе.',
+'Если второй сегодня устал, иногда достаточно просто немного облегчить ему день.',
+'Не все счастливые моменты выглядят красиво со стороны.',
+'Иногда стоит сохранить фотографию не потому, что она идеальная, а потому, что она ваша.',
+'Хорошо иметь место, куда можно складывать общие идеи и потом случайно их находить.',
+'Забота — это помнить мелочи, которые важны другому.',
+'Можно иногда просто сказать: «Спасибо, что ты есть».',
+'У каждого дня есть шанс стать хорошим хотя бы в одной маленькой детали.',
+'Если сегодня не получилось всё, пусть получится хотя бы быть добрее друг к другу.',
+'Иногда самое приятное — вместе предвкушать что-то, что ещё только будет.',
+'Дом — это место, где ваши странные привычки становятся нормальными.',
+'Можно иногда пересмотреть старые фотографии и удивиться, сколько уже произошло.',
+'Хорошо, когда есть кому написать первым даже совершенно неважную мысль.',
+'Не обязательно всегда быть в одинаковом настроении, чтобы понимать друг друга.',
+'Иногда лучший способ поддержать — сделать обычный день чуть легче.',
+'Общие покупки забываются, а смешные истории вокруг них остаются.',
+'Можно иногда специально ничего не планировать и посмотреть, что получится.',
+'Хорошие слова не портятся от частого использования.',
+'Иногда маленькая уступка сегодня сохраняет хорошее настроение обоим.',
+'Ваши совместные привычки — это тоже история, даже если они кажутся обычными.',
+'Хорошо, когда рядом есть человек, перед которым не страшно выглядеть смешно.',
+'Иногда один вечер без спешки полезнее целых выходных с планами.',
+'Можно чаще отмечать не только большие достижения, но и маленькие победы.',
+'Самые хорошие планы обычно начинаются с простого разговора.',
+'Пусть сегодня будет хотя бы один момент, который хочется повторить.',
+'Иногда достаточно одного объятия, чтобы ничего больше не объяснять.',
+'Хорошо знать, что завтра снова будет с кем обсудить сегодняшний день.'
 ];
 function refreshThought(){const q=$('#dailyQuote');if(!q)return;const d=new Date(),day=Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/86400000);q.innerHTML='<b>Мысль дня.</b> '+thoughts[Math.abs(day)%thoughts.length]}
 
 function setup(){
-  const home=$('#home'),identity=$('.identity-bar'),pill=$('.local-pill'),tools=$('#familyTools'),activity=$('#familyActivity');
-  if(!home||!identity||!pill||!tools||!activity)return false;
+  const home=$('#home'),identity=$('.identity-bar'),profile=$('#profileButton'),pill=$('.local-pill'),tools=$('#familyTools'),activity=$('#familyActivity'),heroTop=home?.querySelector('.hero-top'),today=$('#today');
+  if(!home||!identity||!profile||!pill||!tools||!activity||!heroTop||!today)return false;
 
-  if(!$('#settingsGear')){
-    const actions=document.createElement('div');actions.className='identity-actions';pill.parentNode.insertBefore(actions,pill);actions.appendChild(pill);
-    const gear=document.createElement('button');gear.id='settingsGear';gear.className='settings-gear';gear.type='button';gear.title='Настройки';gear.setAttribute('aria-label','Настройки');gear.textContent='⚙️';actions.appendChild(gear);
-    const overlay=document.createElement('div');overlay.id='familySettings';overlay.className='overlay settings-overlay';overlay.innerHTML='<div class="modal-card"><div class="settings-head"><h3>Настройки</h3><button type="button" id="settingsClose">×</button></div><p class="settings-sub">Приложение и уведомления</p><div id="settingsToolsSlot"></div><div class="settings-status">Персональная ссылка и общая синхронизация остаются без изменений.</div></div>';document.body.appendChild(overlay);
+  let gear=$('#settingsGear');
+  if(!gear){
+    let heroActions=home.querySelector('.hero-actions');
+    if(!heroActions){heroActions=document.createElement('div');heroActions.className='hero-actions';heroTop.appendChild(heroActions)}
+    heroActions.appendChild(today);
+    gear=document.createElement('button');gear.id='settingsGear';gear.className='settings-gear';gear.type='button';gear.title='Настройки';gear.setAttribute('aria-label','Настройки');gear.textContent='⚙️';heroActions.appendChild(gear);
+
+    const overlay=document.createElement('div');overlay.id='familySettings';overlay.className='overlay settings-overlay';overlay.innerHTML='<div class="modal-card"><div class="settings-head"><h3>Настройки</h3><button type="button" id="settingsClose">×</button></div><p class="settings-sub">Профиль, синхронизация и приложение</p><div class="settings-account" id="settingsAccount"></div><div id="settingsToolsSlot"></div></div>';document.body.appendChild(overlay);
+    $('#settingsAccount').appendChild(profile);$('#settingsAccount').appendChild(pill);
     tools.classList.add('settings-tools');$('#settingsToolsSlot').appendChild(tools);
     const close=()=>overlay.classList.remove('show');gear.onclick=()=>overlay.classList.add('show');$('#settingsClose').onclick=close;overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
   }
@@ -100,7 +174,6 @@ function setup(){
     head?.addEventListener('click',toggle);head?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}});
   }
 
-  const title=home.querySelector('.hero h1');if(title)title.textContent='Мы вдвоём';
   refreshThought();
   return true;
 }
