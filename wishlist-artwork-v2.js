@@ -2,7 +2,7 @@ if(typeof document!=='undefined'&&!window.__wishlistArtworkV2){
   const apply=()=>{
     const photo=document.querySelector('#home .menu [data-open="wishlist"] .feature-photo');
     if(!photo)return false;
-    photo.style.backgroundImage="url('./assets/wishlist-loveis-v2.webp')";
+    photo.style.backgroundImage="url('./assets/wishlist-loveis-v2.webp?v=3')";
     photo.style.backgroundPosition='center';
     photo.dataset.artwork='wishlist-loveis-v2';
     return true;
