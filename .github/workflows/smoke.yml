@@ -23,6 +23,7 @@ jobs:
           node --check social-upgrades.js
           node --check home-layout.js
           node --check home-cards-redesign.js
+          node --check interaction-fixes.js
           node --check sw.js
       - name: Run smoke tests
         run: node tests/smoke.mjs
