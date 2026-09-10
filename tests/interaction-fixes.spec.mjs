@@ -5,13 +5,14 @@ const base='http://127.0.0.1:8000/';
 test.beforeEach(async({page})=>{
   await page.addInitScript(()=>{
     localStorage.clear();
-    sessionStorage.clear();
     localStorage.setItem('us_profile',JSON.stringify({name:'Муж'}));
     localStorage.setItem('us_wishes',JSON.stringify([
       {id:123,t:'Измельчитель пищевых продуктов для кухонной раковины',type:'🎁',done:false,author:'Жена',createdAt:'2026-09-10T12:00:00.000Z'}
     ]));
   });
   await page.goto(base);
+  await page.evaluate(()=>sessionStorage.clear());
+  await page.reload();
   await page.waitForFunction(()=>window.__interactionFixes===true&&window.__appReady===true);
 });
 
