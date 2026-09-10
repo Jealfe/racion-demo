@@ -11,12 +11,12 @@ test.beforeEach(async({page})=>{
 });
 
 test('главная и навигация открывают основные разделы',async({page})=>{
-  await expect(page.getByRole('heading',{name:'Мы вдвоём'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Мы вдвоём',exact:true})).toBeVisible();
   await page.getByRole('button',{name:/Дом и дизайны/}).click();
-  await expect(page.getByRole('heading',{name:'Дом и дизайны'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Дом и дизайны',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Главная'}).click();
   await page.getByRole('button',{name:/Спасибо/}).first().click();
-  await expect(page.getByRole('heading',{name:'Спасибо'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Спасибо',exact:true})).toBeVisible();
 });
 
 test('спасибо отправляется один раз и форма сбрасывается',async({page})=>{
@@ -41,6 +41,7 @@ test('входящее спасибо с одним id не дублируетс
   await page.locator('#closeReceived').click();
   await expect(page.locator('#thanksFeed .feed-item')).toHaveCount(1);
   await page.goto(base+'#thanks='+payload);
+  await expect(page.locator('#received')).toHaveClass(/show/);
   await page.locator('#closeReceived').click();
   await expect(page.locator('#thanksFeed .feed-item')).toHaveCount(1);
 });
