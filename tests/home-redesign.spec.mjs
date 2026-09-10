@@ -11,34 +11,25 @@ test.beforeEach(async({page})=>{
   await page.waitForFunction(()=>window.__homeCardsRedesign===true);
 });
 
-test('главная повторяет согласованный компактный макет',async({page})=>{
+test('главная использует новый компактный порядок',async({page})=>{
   const menu=page.locator('#home .menu');
-  await expect(menu).toHaveClass(/home-menu-redesign/);
-
-  const designs=menu.locator('[data-open="designs"]');
   const moments=menu.locator('[data-open="moments"]');
-  await expect(designs).toHaveClass(/home-feature/);
+  const wishlist=menu.locator('[data-open="wishlist"]');
   await expect(moments).toHaveClass(/home-feature/);
-  await expect(designs).toContainText('Идеи для будущего дома');
-  await expect(moments).toContainText('Фото, даты и воспоминания');
-
-  for(const id of ['movies','food','wishlist','ideas','likes','surprise']){
-    await expect(menu.locator(`[data-open="${id}"]`)).toHaveClass(/home-mini/);
-  }
-
+  await expect(wishlist).toHaveClass(/home-feature/);
+  for(const id of ['designs','movies','food','ideas','likes','surprise']) await expect(menu.locator(`[data-open="${id}"]`)).toHaveClass(/home-mini/);
+  const order=await menu.locator(':scope > [data-open]').evaluateAll(nodes=>nodes.map(n=>n.dataset.open));
+  expect(order.slice(0,4)).toEqual(['moments','wishlist','designs','movies']);
   await expect(menu.locator('[data-open="thanks"]')).toBeHidden();
-  await expect(page.locator('.bottom [data-nav="thanks"]')).toBeVisible();
-
-  const featureBox=await designs.boundingBox();
+  const featureBox=await moments.boundingBox();
   const miniBox=await menu.locator('[data-open="movies"]').boundingBox();
-  expect(featureBox&&miniBox&&featureBox.width>miniBox.width*1.7).toBeTruthy();
-  expect(featureBox&&featureBox.height<=110).toBeTruthy();
-  expect(miniBox&&miniBox.height<=82).toBeTruthy();
+  expect(featureBox&&featureBox.height<=82).toBeTruthy();
+  expect(miniBox&&miniBox.height<=58).toBeTruthy();
 });
 
-test('шестерёнка белая и больше не emoji',async({page})=>{
+test('кнопка настроек показывает белые ползунки',async({page})=>{
   const gear=page.locator('#settingsGear');
-  await expect(gear.locator('svg')).toHaveCount(1);
+  await expect(gear.locator('svg circle')).toHaveCount(3);
   const color=await gear.evaluate(el=>getComputedStyle(el).color);
   expect(color).toMatch(/rgb\(255, 255, 255\)|rgba\(255, 255, 255/);
   await gear.click();
