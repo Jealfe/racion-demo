@@ -1,12 +1,92 @@
 import {DEFAULT_THANKS_HINT,makeThanksText,makeMessageId,encodeThanksPayload,decodeThanksPayload,addUniqueThanks,pickByTag,localDateValue,normalizeAuthor,unreadTotal} from './app-core.mjs';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const store={
+const CLOUD_API='https://jlejyppniaifdavllwid.supabase.co/functions/v1/family-api';
+let cloudToken=localStorage.getItem('us_family_token')||'';
+let cloudApplying=false, cloudReady=false, cloudBusy=false;
+if(location.hash.startsWith('#access=')){
+  cloudToken=decodeURIComponent(location.hash.slice(8));
+  localStorage.setItem('us_family_token',cloudToken);
+  history.replaceState(null,'',location.pathname+location.search);
+}
+const localStore={
   get(k,d=[]){try{return JSON.parse(localStorage.getItem('us_'+k))??d}catch{return d}},
   set(k,v){try{localStorage.setItem('us_'+k,JSON.stringify(v));return true}catch{return false}}
 };
+const store={
+  get:localStore.get,
+  set(k,v){const old=localStore.get(k,[]);const ok=localStore.set(k,v);if(ok&&!cloudApplying&&cloudReady)queueCloudDiff(k,old,v);return ok}
+};
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1900)}
+async function cloudApi(action,payload={}){
+  if(!cloudToken) throw new Error('NO_TOKEN');
+  const r=await fetch(CLOUD_API,{method:'POST',headers:{'content-type':'application/json','x-family-token':cloudToken},body:JSON.stringify({action,...payload})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||'CLOUD_ERROR');
+  return data;
+}
+const keyKind={movies:'movies',thanks:'thanks',wishes:'wishlist',ideas:'ideas',likes:'likes',moments:'moments'};
+function itemPayload(key,x){
+  if(key==='movies')return {kind:'movies',text:x.t||'',data:{}};
+  if(key==='thanks')return {kind:'thanks',text:x.text||'',data:{refId:x.refId||''}};
+  if(key==='wishes')return {kind:'wishlist',text:x.t||'',emoji:x.type||'🎁',data:{done:Boolean(x.done)}};
+  if(key==='ideas')return {kind:'ideas',text:x.t||'',emoji:x.type||'👀',data:{done:Boolean(x.done)}};
+  if(key==='likes')return {kind:'likes',text:x.t||'',emoji:x.type||'✨',data:{}};
+  if(key==='moments')return {kind:'moments',text:x.text||'',imageData:x.img?.startsWith('data:')?x.img:undefined,data:{date:x.date||''}};
+  return null;
+}
+function isCloudId(id){return typeof id==='string'&&/^[0-9a-f-]{30,}$/i.test(id)}
+async function queueCloudDiff(key,oldValue,newValue){
+  if(!keyKind[key]||cloudBusy)return;
+  const old=Array.isArray(oldValue)?oldValue:[], neu=Array.isArray(newValue)?newValue:[];
+  const oldMap=new Map(old.map(x=>[String(x.id),x])), newMap=new Map(neu.map(x=>[String(x.id),x]));
+  const added=neu.filter(x=>!oldMap.has(String(x.id)));
+  const removed=old.filter(x=>!newMap.has(String(x.id))&&isCloudId(x.id));
+  const changed=neu.filter(x=>isCloudId(x.id)&&oldMap.has(String(x.id))&&JSON.stringify(x)!==JSON.stringify(oldMap.get(String(x.id))));
+  try{
+    for(const x of added){const p=itemPayload(key,x);if(p)await cloudApi('create',p)}
+    for(const x of changed){const p=itemPayload(key,x);if(p)await cloudApi('update',{id:x.id,text:p.text,emoji:p.emoji,data:p.data})}
+    for(const x of removed)await cloudApi('delete',{id:x.id});
+    if(added.length||changed.length||removed.length)setTimeout(syncCloud,120);
+  }catch(e){console.error(e);toast('Не удалось синхронизировать — запись осталась на этом устройстве')}
+}
+function cloudRowsToLocal(items){
+  const out={movies:[],thanks:[],wishes:[],ideas:[],likes:[],moments:[]};
+  for(const x of items||[]){
+    const base={id:x.id,author:x.author_name,createdAt:x.created_at};
+    if(x.kind==='movies')out.movies.push({...base,t:x.text});
+    if(x.kind==='thanks')out.thanks.push({...base,refId:x.data?.refId||x.id,text:x.text,date:x.created_at,received:x.author_name!==currentAuthor()});
+    if(x.kind==='wishlist')out.wishes.push({...base,t:x.text,type:x.emoji||'🎁',done:Boolean(x.data?.done)});
+    if(x.kind==='ideas')out.ideas.push({...base,t:x.text,type:x.emoji||'👀',done:Boolean(x.data?.done)});
+    if(x.kind==='likes')out.likes.push({...base,t:x.text,type:x.emoji||'✨'});
+    if(x.kind==='moments')out.moments.push({...base,img:x.image_url||'',text:x.text,date:x.data?.date||''});
+  }
+  return out;
+}
+async function syncCloud(){
+  if(!cloudReady||cloudBusy)return;
+  cloudBusy=true;
+  try{
+    const d=await cloudApi('sync');
+    profile={...profile,name:normalizeAuthor(d.author||profile.name||'')};localStore.set('profile',profile);updateProfileUI();
+    const mapped=cloudRowsToLocal(d.items);
+    cloudApplying=true;
+    for(const [k,v] of Object.entries(mapped))localStore.set(k,v);
+    localStore.set('unread',d.unread||{});
+    cloudApplying=false;
+    renderThanks();renderWishes();renderIdeas();renderLikes();renderMoments();renderMovies();renderIndicators();
+  }catch(e){console.error(e);cloudReady=false;setCloudStatus(false)}finally{cloudApplying=false;cloudBusy=false}
+}
+async function markCloudRead(section){
+  if(!cloudReady||!sectionNames[section])return;
+  try{const d=await cloudApi('mark_read',{section});cloudApplying=true;localStore.set('unread',d.unread||{});cloudApplying=false;renderIndicators()}catch(e){console.error(e)}
+}
+function setCloudStatus(ok){const p=$('.local-pill');if(!p)return;p.textContent=ok?'☁️ общая синхронизация':'🔒 только это устройство';p.style.background=ok?'#e6f3e9':'#ebe6df';}
+async function initCloud(){
+  if(!cloudToken){setCloudStatus(false);return}
+  try{const d=await cloudApi('whoami');profile={...profile,name:normalizeAuthor(d.author)};localStore.set('profile',profile);updateProfileUI();cloudReady=true;setCloudStatus(true);await syncCloud();setInterval(syncCloud,10000)}catch(e){console.error(e);localStorage.removeItem('us_family_token');cloudToken='';cloudReady=false;setCloudStatus(false);toast('Ключ устройства не подошёл')}
+}
 
 // Профиль этого устройства и индикаторы активности.
 let profile=store.get('profile',{});if(!profile||typeof profile!=='object')profile={};
@@ -17,33 +97,32 @@ function authorLabel(x){return normalizeAuthor(x?.author||'')}
 function requireAuthor(){const a=currentAuthor();if(a)return a;showProfileSetup();toast('Сначала выбери, кто ты');return ''}
 function withAuthor(data){return {...data,author:currentAuthor(),createdAt:new Date().toISOString()}}
 function getUnread(){const v=store.get('unread',{});return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}
-function setUnread(section,count){const u=getUnread();u[section]=Math.max(0,Number(count)||0);store.set('unread',u);renderIndicators()}
-function markUnread(section,count=1){const u=getUnread();u[section]=(Number(u[section])||0)+Math.max(1,Number(count)||1);store.set('unread',u);renderIndicators()}
-function clearUnread(section){if(!sectionNames[section])return;const u=getUnread();if(Number(u[section])>0){u[section]=0;store.set('unread',u);renderIndicators()}}
+function setUnread(section,count){const u=getUnread();u[section]=Math.max(0,Number(count)||0);localStore.set('unread',u);renderIndicators()}
+function markUnread(section,count=1){const u=getUnread();u[section]=(Number(u[section])||0)+Math.max(1,Number(count)||1);localStore.set('unread',u);renderIndicators()}
+function clearUnread(section){if(!sectionNames[section])return;const u=getUnread();if(Number(u[section])>0){u[section]=0;localStore.set('unread',u);renderIndicators()}markCloudRead(section)}
 
 const extraStyle=document.createElement('style');extraStyle.textContent=`
 .tile{position:relative}.bottom button{position:relative}.identity-bar{margin:10px 4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px}.who-btn{border:0;background:#fff;border-radius:15px;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#333;box-shadow:0 6px 18px rgba(35,30,25,.05);cursor:pointer}.who-btn small{color:#999}.local-pill{font-size:10px;color:#777;background:#ebe6df;border-radius:999px;padding:8px 10px;white-space:nowrap}.activity-signal{display:none;width:calc(100% - 8px);margin:10px 4px 0;border:1px solid #f1d29d;background:#fff7e8;border-radius:18px;padding:12px 14px;text-align:left;align-items:center;gap:11px;color:#574220;cursor:pointer}.activity-signal.show{display:flex}.activity-lamp{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#ffe39c;font-size:21px;box-shadow:0 0 0 0 rgba(240,176,49,.5);animation:lampPulse 1.8s infinite}.activity-signal b{font-size:13px}.activity-signal span.txt{display:block;font-size:10px;color:#8d744b;margin-top:2px}@keyframes lampPulse{0%{box-shadow:0 0 0 0 rgba(240,176,49,.5)}70%{box-shadow:0 0 0 9px rgba(240,176,49,0)}100%{box-shadow:0 0 0 0 rgba(240,176,49,0)}}.notify-badge{position:absolute;right:10px;top:10px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#df5363;color:#fff;font-size:10px;font-weight:900;display:none;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(196,56,73,.28);z-index:5}.notify-badge.show{display:flex}.bottom .notify-badge{right:15px;top:3px;min-width:17px;height:17px;font-size:9px;padding:0 4px}.author-line{display:block;margin-top:4px;font-size:10px!important;color:#9a8f86!important}.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0 10px}.profile-choice{border:1px solid #ece3db;background:#faf7f3;border-radius:17px;padding:16px 10px;font-weight:800;font-size:14px;cursor:pointer}.profile-note{font-size:10px!important;color:#999!important;margin-top:10px!important}.profile-custom{display:flex;gap:8px;margin-top:10px}.profile-custom input{flex:1;min-width:0;border:1px solid #e7ded6;border-radius:14px;padding:12px;font:inherit}.profile-custom button{border:0;background:#17191d;color:#fff;border-radius:14px;padding:0 14px;font-weight:800}.profile-close{display:none;margin-top:9px;width:100%;border:0;background:transparent;color:#888;padding:9px;cursor:pointer}.profile-close.show{display:block}
 `;document.head.appendChild(extraStyle);
 
-const identityBar=document.createElement('div');identityBar.className='identity-bar';identityBar.innerHTML='<button class="who-btn" id="profileButton">👤 <b id="profileName">Кто я?</b> <small>сменить</small></button><div class="local-pill">🔒 пока локально</div>';
+const identityBar=document.createElement('div');identityBar.className='identity-bar';identityBar.innerHTML='<button class="who-btn" id="profileButton">👤 <b id="profileName">Кто я?</b> <small>сменить</small></button><div class="local-pill">🔒 только это устройство</div>';
 $('#dailyQuote').after(identityBar);
 const activitySignal=document.createElement('button');activitySignal.id='activitySignal';activitySignal.className='activity-signal';activitySignal.innerHTML='<span class="activity-lamp">💡</span><span><b>Есть новое</b><span class="txt" id="activityText"></span></span>';identityBar.after(activitySignal);
-document.body.insertAdjacentHTML('beforeend',`<div class="overlay" id="profileSetup"><div class="modal-card"><div class="emoji">👋</div><h3>Кто сейчас здесь?</h3><p>Выбери один раз на этом телефоне. Новые записи будут подписываться этим именем.</p><div class="profile-grid"><button class="profile-choice" data-profile="Алекс">Алекс</button><button class="profile-choice" data-profile="Жена">❤️ Жена</button></div><div class="profile-custom"><input id="profileCustom" maxlength="32" placeholder="Или другое имя"><button id="profileCustomSave">OK</button></div><p class="profile-note">Это пока не аккаунт и не вход по паролю — имя хранится только в браузере этого устройства.</p><button class="profile-close" id="profileClose">Оставить как есть</button></div></div>`);
+document.body.insertAdjacentHTML('beforeend',`<div class="overlay" id="profileSetup"><div class="modal-card"><div class="emoji">👋</div><h3>Кто сейчас здесь?</h3><p>Выбери один раз на этом телефоне. Новые записи будут подписываться этим именем.</p><div class="profile-grid"><button class="profile-choice" data-profile="Алекс">Алекс</button><button class="profile-choice" data-profile="Жена">❤️ Жена</button></div><div class="profile-custom"><input id="profileCustom" maxlength="32" placeholder="Или другое имя"><button id="profileCustomSave">OK</button></div><p class="profile-note">Без персонального ключа записи остаются только на этом устройстве. Персональная ссылка включает общую синхронизацию.</p><button class="profile-close" id="profileClose">Оставить как есть</button></div></div>`);
 function updateProfileUI(){const a=currentAuthor();$('#profileName').textContent=a||'Кто я?';$('#profileClose').classList.toggle('show',Boolean(a))}
 function showProfileSetup(){$('#profileCustom').value=currentAuthor();$('#profileSetup').classList.add('show');updateProfileUI()}
-function setProfile(name){const n=normalizeAuthor(name);if(!n)return toast('Напиши имя');profile={...profile,name:n};store.set('profile',profile);updateProfileUI();$('#profileSetup').classList.remove('show');toast('Теперь записи будут от: '+n)}
+function setProfile(name){if(cloudReady)return toast('В общем режиме автор определяется персональной ссылкой');const n=normalizeAuthor(name);if(!n)return toast('Напиши имя');profile={...profile,name:n};store.set('profile',profile);updateProfileUI();$('#profileSetup').classList.remove('show');toast('Теперь записи будут от: '+n)}
 $$('[data-profile]').forEach(b=>b.addEventListener('click',()=>setProfile(b.dataset.profile)));
 $('#profileCustomSave').addEventListener('click',()=>setProfile($('#profileCustom').value));
 $('#profileCustom').addEventListener('keydown',e=>{if(e.key==='Enter')setProfile(e.target.value)});
 $('#profileClose').addEventListener('click',()=>$('#profileSetup').classList.remove('show'));
-$('#profileButton').addEventListener('click',showProfileSetup);
-updateProfileUI();if(!currentAuthor())showProfileSetup();
+$('#profileButton').addEventListener('click',()=>cloudReady?toast('Автор этого устройства: '+currentAuthor()):showProfileSetup());
+updateProfileUI();if(!currentAuthor()&&!cloudToken)showProfileSetup();
 
 function renderIndicators(){const u=getUnread();for(const section of Object.keys(sectionNames)){const count=Math.max(0,Number(u[section])||0);$$(`[data-open="${section}"]`).forEach(tile=>{let b=tile.querySelector('.notify-badge');if(!b){b=document.createElement('span');b.className='notify-badge';tile.appendChild(b)}b.textContent=count>9?'9+':String(count);b.classList.toggle('show',count>0)});if(section==='thanks'){$$('[data-nav="thanks"]').forEach(tile=>{let b=tile.querySelector('.notify-badge');if(!b){b=document.createElement('span');b.className='notify-badge';tile.appendChild(b)}b.textContent=count>9?'9+':String(count);b.classList.toggle('show',count>0)})}}
   const total=unreadTotal(u),parts=Object.entries(sectionNames).filter(([k])=>(Number(u[k])||0)>0).map(([k,n])=>`${n}: ${u[k]}`);activitySignal.classList.toggle('show',total>0);$('#activityText').textContent=parts.join(' · ');activitySignal.dataset.section=Object.keys(sectionNames).find(k=>(Number(u[k])||0)>0)||'';
 }
 activitySignal.addEventListener('click',()=>{if(activitySignal.dataset.section)openScreen(activitySignal.dataset.section)});renderIndicators();
-
 function renderSection(id){({thanks:renderThanks,wishlist:renderWishes,ideas:renderIdeas,likes:renderLikes,moments:renderMoments,movies:renderMovies}[id]?.())}
 function openScreen(id){$$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));$$('.bottom button').forEach(x=>x.classList.toggle('active',x.dataset.nav===id));clearUnread(id);scrollTo({top:0,behavior:'smooth'});renderSection(id)}
 $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openScreen(b.dataset.open)));
@@ -80,7 +159,7 @@ function setThanks(reason){currentThanks=makeThanksText(reason,'');$('#thanksPre
 $$('[data-thanks]').forEach(b=>b.addEventListener('click',()=>setThanks(b.dataset.thanks)));
 $('#thanksCustom').addEventListener('input',e=>{currentThanks=makeThanksText('',e.target.value);$$('[data-thanks]').forEach(b=>b.classList.remove('active'));$('#thanksPreview').textContent=currentThanks||DEFAULT_THANKS_HINT;updateThanksButtons()});
 function saveThanks(msg,received=false,refId='',author=''){const old=store.get('thanks');const item={id:Date.now(),refId,text:msg,date:new Date().toISOString(),received,author:received?normalizeAuthor(author):currentAuthor(),createdAt:new Date().toISOString()};const next=addUniqueThanks(old,item);if(next.length===old.length)return false;if(!store.set('thanks',next)){toast('Не удалось сохранить');return false}renderThanks();return true}
-$('#saveThanks').addEventListener('click',()=>{if(!currentThanks||!requireAuthor())return;saveThanks(currentThanks,false,makeMessageId());resetThanks();toast('Добавил в банку 💌')});
+$('#saveThanks').addEventListener('click',()=>{if(!currentThanks||!requireAuthor())return;saveThanks(currentThanks,false,makeMessageId());resetThanks();toast(cloudReady?'Отправил в общую банку 💌':'Добавил в банку 💌')});
 $('#shareThanks').addEventListener('click',async()=>{const author=requireAuthor();if(!currentThanks||thanksBusy||!author)return;thanksBusy=true;updateThanksButtons();const msg=currentThanks,id=makeMessageId(),date=new Date().toISOString();const payload=encodeThanksPayload({id,text:msg,date,author});const url=location.origin+location.pathname+'#thanks='+payload;try{if(navigator.share){await navigator.share({title:`Сообщение от ${author} ❤️`,text:msg,url});saveThanks(msg,false,id,author);resetThanks();toast('Отправлено 💌')}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(msg+'\n'+url);saveThanks(msg,false,id,author);resetThanks();toast('Сообщение и ссылка скопированы')}else{toast('На этом устройстве нет функции «Поделиться»')}}catch(e){if(e?.name!=='AbortError')toast('Не получилось поделиться')}finally{thanksBusy=false;updateThanksButtons()}});
 function renderThanks(){const a=store.get('thanks');$('#thanksCount').textContent=a.length?a.length+' сообщений':'';$('#thanksFeed').innerHTML=a.length?a.map(x=>{const au=authorLabel(x);return `<div class="feed-item"><b>${x.received?(au?'💌 От '+esc(au):'💌 Получено'):(au?'❤️ '+esc(au):'❤️ Спасибо')}</b><p>${esc(x.text)}</p><time>${new Date(x.date).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time></div>`}).join(''):'<div class="empty">Здесь будут копиться маленькие «спасибо».</div>'}
 function checkIncoming(){if(!location.hash.startsWith('#thanks='))return;try{const d=decodeThanksPayload(location.hash.slice(8));$('#receivedText').textContent=d.text;const h=$('#received .modal-card h3');if(h)h.textContent=d.author?`${d.author} говорит спасибо`:'Тебе сказали спасибо';$('#received').classList.add('show');window.__incomingThanks=d}catch{history.replaceState(null,'',location.pathname+location.search)}}
@@ -102,15 +181,15 @@ function renderLikes(){const a=store.get('likes');$('#likeList').innerHTML=a.len
 
 // Моменты
 function compressImage(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=800,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.68))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
-$('#addMoment').addEventListener('click',async()=>{if(!requireAuthor())return;const file=$('#momentPhoto').files[0],text=$('#momentText').value.trim(),date=$('#momentDate').value;if(!file)return toast('Сначала выбери фото');if(!file.type.startsWith('image/'))return toast('Нужна картинка');$('#addMoment').disabled=true;try{const img=await compressImage(file),a=store.get('moments');a.unshift(withAuthor({id:Date.now(),img,text,date}));if(!store.set('moments',a.slice(0,8)))return toast('Память браузера заполнена — удали старое фото');$('#momentPhoto').value='';$('#momentText').value='';renderMoments();toast('Момент сохранён ❤️')}catch{toast('Не удалось обработать фото')}finally{$('#addMoment').disabled=false}});
+$('#addMoment').addEventListener('click',async()=>{if(!requireAuthor())return;const file=$('#momentPhoto').files[0],text=$('#momentText').value.trim(),date=$('#momentDate').value;if(!file)return toast('Сначала выбери фото');if(!file.type.startsWith('image/'))return toast('Нужна картинка');$('#addMoment').disabled=true;try{const img=await compressImage(file),a=store.get('moments');a.unshift(withAuthor({id:Date.now(),img,text,date}));if(!store.set('moments',a.slice(0,8)))return toast('Память браузера заполнена — удали старое фото');$('#momentPhoto').value='';$('#momentText').value='';renderMoments();toast(cloudReady?'Фото отправляется в общее хранилище ❤️':'Момент сохранён ❤️')}catch{toast('Не удалось обработать фото')}finally{$('#addMoment').disabled=false}});
 function renderMoments(){const a=store.get('moments');$('#momentGrid').innerHTML=a.length?a.map(x=>`<div class="moment"><img src="${x.img}" alt="Наш момент"><div class="moment-body"><b>${x.date?new Date(x.date+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):'Наш момент'}</b><p>${esc(x.text||'Без подписи')}</p><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn moment-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty wide-empty">Здесь пока нет фото. Первое всегда самое сложное 🙂</div>';$$('.moment-del').forEach(b=>b.onclick=()=>{store.set('moments',a.filter(i=>String(i.id)!==b.dataset.id));renderMoments()})}
 
 // Сюрприз
 const surprises=[['🤗','Обнять без причины','Никакого повода не нужно. Просто подойди и обними.'],['☕','Сделать что-нибудь приятное','Чай, кофе, вкусняшка — маленькая бытовая забота сегодня считается двойной.'],['📸','Найти старую фотографию','Отправь друг другу случайную старую фотографию, которую давно не видели.'],['💬','Сказать один комплимент','Только настоящий и конкретный: за что именно.'],['❤️','Написать «я тебя люблю»','Без объяснений и без повода. Иногда трёх слов достаточно.'],['🍫','Маленький вкусный сюрприз','Купить или оставить что-нибудь вкусное друг для друга.'],['😂','Найти что-нибудь смешное','Мем, старую историю или видео, которое точно заставит второго улыбнуться.'],['📝','Одно короткое спасибо','За совершенно обычную вещь, которую обычно не замечаем.']];
 $('#surpriseBtn').addEventListener('click',()=>{const x=surprises[Math.floor(Math.random()*surprises.length)];$('#surpriseEmoji').textContent=x[0];$('#surpriseTitle').textContent=x[1];$('#surpriseText').textContent=x[2]});
 
-// Если другая вкладка этого же браузерного профиля изменит данные, показываем лампочку.
 window.addEventListener('storage',e=>{
+  if(e.key==='us_family_token'){cloudToken=localStorage.getItem('us_family_token')||'';initCloud();return}
   if(e.key==='us_profile'){profile=store.get('profile',{});updateProfileUI();return}
   if(e.key==='us_unread'){renderIndicators();return}
   const section=storageSections[e.key];if(!section)return;
@@ -120,4 +199,4 @@ window.addEventListener('storage',e=>{
   if(added.length)markUnread(section,added.length);renderSection(section);
 });
 
-renderThanks();renderWishes();renderIdeas();renderLikes();renderMoments();renderMovies();renderIndicators();window.__appReady=true;
+renderThanks();renderWishes();renderIdeas();renderLikes();renderMoments();renderMovies();renderIndicators();initCloud();window.__appReady=true;
