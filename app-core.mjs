@@ -1,17 +1,47 @@
 const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
 const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
 
+if(typeof window!=='undefined' && !window.__familyTokenGuardPatched){
+  const nativeRemove=Storage.prototype.removeItem;
+  Storage.prototype.removeItem=function(key){
+    if(this===window.localStorage && key==='us_family_token' && !window.__allowFamilyTokenRemoval){
+      if(!sessionStorage.getItem('us_family_recovery_reload')){
+        sessionStorage.setItem('us_family_recovery_reload','1');
+        setTimeout(()=>location.reload(),3500);
+      }
+      return;
+    }
+    return nativeRemove.call(this,key);
+  };
+  window.__familyTokenGuardPatched=true;
+}
+
 if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__familyApiFetchPatched){
   const nativeFetch=window.fetch.bind(window);
-  window.fetch=(input,init={})=>{
+  window.fetch=async(input,init={})=>{
     const url=typeof input==='string'?input:(input&&typeof input.url==='string'?input.url:String(input));
-    if(url.includes(FAMILY_API_HOST+'/functions/v1/family-api')){
-      const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
-      const headers=new Headers(init.headers||sourceHeaders||{});
-      if(!headers.has('apikey')) headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
-      init={...init,headers};
+    if(!url.includes(FAMILY_API_HOST+'/functions/v1/family-api')) return nativeFetch(input,init);
+    const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
+    const headers=new Headers(init.headers||sourceHeaders||{});
+    if(!headers.has('apikey')) headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
+    const nextInit={...init,headers};
+    let lastError=null;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        const response=await nativeFetch(input,nextInit);
+        if(response.status<500 && response.status!==429){
+          sessionStorage.removeItem('us_family_recovery_reload');
+          return response;
+        }
+        if(attempt===2) return response;
+      }catch(error){
+        lastError=error;
+        if(attempt===2) throw error;
+      }
+      await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
     }
-    return nativeFetch(input,init);
+    if(lastError) throw lastError;
+    return nativeFetch(input,nextInit);
   };
   window.__familyApiFetchPatched=true;
 }
