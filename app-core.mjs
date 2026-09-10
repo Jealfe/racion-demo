@@ -83,6 +83,7 @@ if(typeof window!=='undefined'){
   await import('./ui-polish.js');
   await import('./design-board.js');
   await import('./social-upgrades.js');
+  await import('./home-layout.js');
 }
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
