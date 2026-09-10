@@ -85,6 +85,7 @@ if(typeof window!=='undefined'){
   await import('./social-upgrades.js');
   await import('./home-layout.js');
   await import('./home-cards-redesign.js?v=7');
+  await import('./wishlist-artwork-v2.js?v=1');
   await import('./interaction-fixes.js?v=2');
 }
 
