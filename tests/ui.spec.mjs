@@ -1,6 +1,12 @@
 import {test,expect} from '@playwright/test';
 
 const base='http://127.0.0.1:8000/';
+async function confirmDelete(page,trigger){
+  await trigger.click();
+  await expect(page.locator('#deleteConfirm')).toHaveClass(/show/);
+  await page.locator('#deleteConfirm .confirm-delete').click();
+  await expect(page.locator('#deleteConfirm')).not.toHaveClass(/show/);
+}
 
 test.beforeEach(async({page})=>{
   await page.addInitScript(()=>{
@@ -76,7 +82,7 @@ test('новая запись другого автора включает ла�
   await expect(page.locator('[data-open="wishlist"] .notify-badge')).not.toHaveClass(/show/);
 });
 
-test('доска дизайнов позволяет добавить фото по комнате, открыть и удалить',async({page})=>{
+test('доска дизайнов позволяет добавить фото по комнате, открыть и удалить с подтверждением',async({page})=>{
   await page.getByRole('button',{name:/Дом и дизайны/}).click();
   await expect(page.getByText('Наша доска идей')).toBeVisible();
   await page.locator('#designRoom').selectOption('bedroom1');
@@ -90,11 +96,15 @@ test('доска дизайнов позволяет добавить фото �
   await page.locator('.idea-card .pic').first().click();
   await expect(page.locator('#designViewer')).toHaveClass(/show/);
   await page.locator('#closeViewer').click();
-  await page.locator('.idea-del').click();
+  await page.locator('.idea-card .idea-del').click();
+  await expect(page.locator('#deleteConfirm')).toHaveClass(/show/);
+  await page.locator('#deleteConfirm .cancel-delete').click();
+  await expect(page.locator('#designBoard')).toContainText('Подсветка за рейками у кровати');
+  await confirmDelete(page,page.locator('.idea-card .idea-del'));
   await expect(page.locator('#designBoard')).not.toContainText('Подсветка за рейками у кровати');
 });
 
-test('фильмы выбираются, добавляются с автором и удаляются',async({page})=>{
+test('фильмы выбираются, добавляются с автором и удаляются после подтверждения',async({page})=>{
   await page.getByRole('button',{name:/Что посмотреть/}).click();
   await page.getByRole('button',{name:'Смешной'}).click();
   await page.locator('#pickMovie').click();
@@ -103,7 +113,7 @@ test('фильмы выбираются, добавляются с авторо�
   await page.locator('#addMovie').click();
   await expect(page.locator('#movieList')).toContainText('Наш тестовый фильм');
   await expect(page.locator('#movieList')).toContainText('Муж');
-  await page.locator('.del-movie').click();
+  await confirmDelete(page,page.locator('.del-movie'));
   await expect(page.locator('#movieList')).not.toContainText('Наш тестовый фильм');
 });
 
@@ -117,42 +127,56 @@ test('еда и сюрприз выдают результат',async({page})=>{
   await expect(page.locator('#surpriseTitle')).not.toHaveText('Нажми и узнаешь');
 });
 
-test('хотелка добавляется с автором, отмечается и удаляется',async({page})=>{
+test('хотелка остаётся после галочки, возвращается обратно и удаляется только после подтверждения',async({page})=>{
   await page.getByRole('button',{name:/Хотелки/}).click();
   await page.locator('#wishText').fill('Кофемашина');
   await page.locator('#addWish').click();
   await expect(page.locator('#wishList')).toContainText('Кофемашина');
   await expect(page.locator('#wishList')).toContainText('Муж');
-  await page.locator('.wish-done').click();
+  const toggle=page.locator('.wish-done');
+  await toggle.click();
   await expect(page.locator('#wishList .list-item')).toHaveClass(/done/);
-  await page.locator('.wish-del').click();
+  await expect(page.locator('#wishList')).toContainText('исполнено');
+  await expect(page.locator('#wishList')).toContainText('Кофемашина');
+  await toggle.click();
+  await expect(page.locator('#wishList .list-item')).not.toHaveClass(/done/);
+  await expect(page.locator('#wishList')).toContainText('хочется');
+  await confirmDelete(page,page.locator('.wish-del'));
   await expect(page.locator('#wishList')).not.toContainText('Кофемашина');
 });
 
-test('идея добавляется с автором, отмечается и удаляется',async({page})=>{
+test('идея остаётся после галочки, возвращается обратно и кнопки не перекрываются',async({page})=>{
   await page.getByRole('button',{name:/Идеи/}).click();
   await page.getByRole('button',{name:'🍴 Попробовать'}).click();
   await page.locator('#ideaText').fill('Новый десерт');
   await page.locator('#addIdea').click();
   await expect(page.locator('#ideaList')).toContainText('Новый десерт');
   await expect(page.locator('#ideaList')).toContainText('Муж');
-  await page.locator('.idea-done').click();
+  const done=page.locator('#ideaList .idea-done'),del=page.locator('#ideaList .idea-del');
+  const db=await done.boundingBox(),xb=await del.boundingBox();
+  expect(db&&xb&&db.x+db.width<=xb.x).toBeTruthy();
+  await done.click();
   await expect(page.locator('#ideaList .list-item')).toHaveClass(/done/);
-  await page.locator('.idea-del').click();
+  await expect(page.locator('#ideaList')).toContainText('готово');
+  await expect(page.locator('#ideaList')).toContainText('Новый десерт');
+  await done.click();
+  await expect(page.locator('#ideaList .list-item')).not.toHaveClass(/done/);
+  await expect(page.locator('#ideaList')).toContainText('в списке');
+  await confirmDelete(page,del);
   await expect(page.locator('#ideaList')).not.toContainText('Новый десерт');
 });
 
-test('нам нравится добавляется с автором и удаляется',async({page})=>{
+test('нам нравится добавляется с автором и удаляется после подтверждения',async({page})=>{
   await page.getByRole('button',{name:/Нам нравится/}).click();
   await page.locator('#likeText').fill('Песня для нас');
   await page.locator('#addLike').click();
   await expect(page.locator('#likeList')).toContainText('Песня для нас');
   await expect(page.locator('#likeList')).toContainText('Муж');
-  await page.locator('.like-del').click();
+  await confirmDelete(page,page.locator('.like-del'));
   await expect(page.locator('#likeList')).not.toContainText('Песня для нас');
 });
 
-test('момент с картинкой добавляется с автором и удаляется',async({page})=>{
+test('момент с картинкой добавляется с автором и удаляется после подтверждения',async({page})=>{
   await page.getByRole('button',{name:/Наши моменты/}).click();
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
   await page.locator('#momentPhoto').setInputFiles({name:'tiny.png',mimeType:'image/png',buffer:png});
@@ -160,6 +184,6 @@ test('момент с картинкой добавляется с авторо�
   await page.locator('#addMoment').click();
   await expect(page.locator('#momentGrid')).toContainText('Тестовый момент');
   await expect(page.locator('#momentGrid')).toContainText('Муж');
-  await page.locator('.moment-del').click();
+  await confirmDelete(page,page.locator('.moment-del'));
   await expect(page.locator('#momentGrid')).not.toContainText('Тестовый момент');
 });
