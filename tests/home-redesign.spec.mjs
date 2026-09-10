@@ -23,8 +23,20 @@ test('главная использует новый компактный пор
   await expect(menu.locator('[data-open="thanks"]')).toBeHidden();
   const featureBox=await moments.boundingBox();
   const miniBox=await menu.locator('[data-open="movies"]').boundingBox();
-  expect(featureBox&&featureBox.height<=82).toBeTruthy();
-  expect(miniBox&&miniBox.height<=58).toBeTruthy();
+  expect(featureBox&&featureBox.height<=74).toBeTruthy();
+  expect(miniBox&&miniBox.height<=52).toBeTruthy();
+});
+
+test('фото занимает почти половину большой карточки, а текст Хотелок остаётся слева',async({page})=>{
+  const wishlist=page.locator('#home .menu [data-open="wishlist"]');
+  const card=await wishlist.boundingBox();
+  const photo=await wishlist.locator('.feature-photo').boundingBox();
+  const copy=await wishlist.locator('.feature-copy').boundingBox();
+  expect(card&&photo&&photo.width/card.width>=0.43).toBeTruthy();
+  expect(card&&photo&&photo.width/card.width<=0.49).toBeTruthy();
+  expect(card&&copy&&copy.x+copy.width<card.x+card.width*0.72).toBeTruthy();
+  await expect(wishlist.locator('.feature-copy strong')).toHaveText('Хотелки');
+  await expect(wishlist.locator('.feature-copy small')).toHaveText('Всё, что хочется');
 });
 
 test('кнопка настроек показывает белые ползунки',async({page})=>{
