@@ -1,0 +1,14 @@
+{
+  "name": "Мы вдвоём",
+  "short_name": "Мы вдвоём",
+  "id": "/racion-demo/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f3ef",
+  "theme_color": "#7b5b68",
+  "description": "Наше маленькое общее место",
+  "icons": [
+    {"src":"./app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
