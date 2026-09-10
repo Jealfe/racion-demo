@@ -43,3 +43,17 @@ export function localDateValue(date=new Date()){
   const d=String(date.getDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
 }
+
+// Если ссылка #thanks=... открывается в уже загруженной вкладке, модульный JS не перезапускается.
+// Подхватываем изменение hash отдельно, чтобы сообщение всё равно появилось.
+if(typeof window!=='undefined' && typeof document!=='undefined'){
+  window.addEventListener('hashchange',()=>{
+    if(!location.hash.startsWith('#thanks=')) return;
+    try{
+      const d=decodeThanksPayload(location.hash.slice(8));
+      const text=document.querySelector('#receivedText');
+      const modal=document.querySelector('#received');
+      if(text&&modal){text.textContent=d.text;modal.classList.add('show');window.__incomingThanks=d;}
+    }catch{}
+  });
+}
