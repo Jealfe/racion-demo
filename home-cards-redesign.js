@@ -66,6 +66,7 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
 
   function setCopy(tile,title,subtitle){
     if(!tile)return;
+    tile.setAttribute('aria-label',title);
     const body=[...tile.children].find(x=>x.tagName==='DIV'&&!x.classList.contains('tile-icon')&&!x.classList.contains('tile-arrow')&&!x.classList.contains('home-card-arrow')&&!x.classList.contains('home-feature-note'));
     if(!body)return;
     const strong=body.querySelector('strong'),small=body.querySelector('small');
