@@ -17,6 +17,7 @@ jobs:
         run: |
           node --check app.js
           node --check app-core.mjs
+          node --check sync-stability.js
           node --check ui-polish.js
           node --check design-board.js
           node --check ui-fixes.js
@@ -32,4 +33,4 @@ jobs:
       - name: Run browser interaction tests
         run: |
           python3 -m http.server 8000 >/tmp/racion-demo-http.log 2>&1 &
-          npx playwright test tests/ui.spec.mjs --reporter=line --workers=1
+          npx playwright test tests/*.spec.mjs --reporter=line --workers=1
