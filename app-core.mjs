@@ -16,6 +16,19 @@ if(typeof window!=='undefined' && !window.__familyTokenGuardPatched){
   window.__familyTokenGuardPatched=true;
 }
 
+if(typeof window!=='undefined' && !window.__familyAccessHashPatched){
+  window.addEventListener('hashchange',()=>{
+    if(!location.hash.startsWith('#access='))return;
+    try{
+      const nextToken=decodeURIComponent(location.hash.slice(8)).trim();
+      if(nextToken.length<32)return;
+      localStorage.setItem('us_family_token',nextToken);
+      location.reload();
+    }catch{}
+  });
+  window.__familyAccessHashPatched=true;
+}
+
 if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__familyApiFetchPatched){
   const nativeFetch=window.fetch.bind(window);
   window.fetch=async(input,init={})=>{
