@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {makeThanksText,encodeThanksPayload,decodeThanksPayload,addUniqueThanks,pickByTag,localDateValue} from '../app-core.mjs';
+import {makeThanksText,encodeThanksPayload,decodeThanksPayload,addUniqueThanks,pickByTag,localDateValue,normalizeAuthor,unreadTotal} from '../app-core.mjs';
 
 let passed=0;
 const test=(name,fn)=>{try{fn();passed++;console.log('✓',name)}catch(e){console.error('✗',name);throw e}};
@@ -17,21 +17,36 @@ test('пустая форма не создаёт сообщение',()=>{
   assert.equal(makeThanksText('',''),'');
 });
 
-test('ссылка спасибо кодируется и декодируется без потери текста',()=>{
-  const src={id:'m_test',text:'Спасибо тебе за ужин ❤️',date:'2026-09-10T10:00:00.000Z'};
+test('ссылка спасибо сохраняет автора',()=>{
+  const src={id:'m_test',text:'Спасибо тебе за ужин ❤️',date:'2026-09-10T10:00:00.000Z',author:'Алекс'};
   assert.deepEqual(decodeThanksPayload(encodeThanksPayload(src)),src);
 });
 
+test('старое спасибо без автора остаётся совместимым',()=>{
+  const src={id:'m_old',text:'Спасибо ❤️',date:'2026-09-10T10:00:00.000Z'};
+  assert.deepEqual(decodeThanksPayload(encodeThanksPayload(src)),{...src,author:''});
+});
+
+test('имя автора очищается и ограничивается',()=>{
+  assert.equal(normalizeAuthor('  Алекс   Дом  '),'Алекс Дом');
+  assert.equal(normalizeAuthor('x'.repeat(50)).length,32);
+});
+
 test('одно входящее сообщение не сохраняется повторно по refId',()=>{
-  const a=[{id:1,refId:'m_1',text:'Спасибо ❤️',date:'2026-09-10T10:00:00.000Z',received:true}];
-  const b=addUniqueThanks(a,{id:2,refId:'m_1',text:'Спасибо ❤️',date:'2026-09-10T10:05:00.000Z',received:true});
+  const a=[{id:1,refId:'m_1',text:'Спасибо ❤️',date:'2026-09-10T10:00:00.000Z',received:true,author:'Жена'}];
+  const b=addUniqueThanks(a,{id:2,refId:'m_1',text:'Спасибо ❤️',date:'2026-09-10T10:05:00.000Z',received:true,author:'Жена'});
   assert.equal(b.length,1);
 });
 
 test('быстрый дубль одного локального действия отсекается',()=>{
-  const a=[{id:1,refId:'',text:'Спасибо тебе за кофе ❤️',date:'2026-09-10T10:00:00.000Z',received:false}];
-  const b=addUniqueThanks(a,{id:2,refId:'',text:'Спасибо тебе за кофе ❤️',date:'2026-09-10T10:00:01.000Z',received:false});
+  const a=[{id:1,refId:'',text:'Спасибо тебе за кофе ❤️',date:'2026-09-10T10:00:00.000Z',received:false,author:'Алекс'}];
+  const b=addUniqueThanks(a,{id:2,refId:'',text:'Спасибо тебе за кофе ❤️',date:'2026-09-10T10:00:01.000Z',received:false,author:'Алекс'});
   assert.equal(b.length,1);
+});
+
+test('счётчик нового суммирует разделы',()=>{
+  assert.equal(unreadTotal({thanks:2,wishlist:1,ideas:0}),3);
+  assert.equal(unreadTotal(null),0);
 });
 
 test('фильтр рандомайзера выбирает только нужную категорию',()=>{
@@ -51,6 +66,14 @@ test('HTML содержит все основные экраны и новый �
     assert.match(html,new RegExp(`id=["']${id}["']`),`Нет #${id}`);
   }
   assert.match(html,/type="module" src="\.\/app\.js"/);
+});
+
+test('JS содержит профиль автора и визуальный индикатор нового',()=>{
+  const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+  assert.match(js,/id="profileSetup"/);
+  assert.match(js,/notify-badge/);
+  assert.match(js,/activity-lamp/);
+  assert.match(js,/author:/);
 });
 
 console.log(`\n${passed} smoke-тестов пройдено.`);
