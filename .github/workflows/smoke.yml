@@ -19,3 +19,11 @@ jobs:
           node --check app-core.mjs
       - name: Run smoke tests
         run: node tests/smoke.mjs
+      - name: Install browser test runner
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run browser interaction tests
+        run: |
+          python3 -m http.server 8000 >/tmp/racion-demo-http.log 2>&1 &
+          npx playwright test tests/ui.spec.mjs --reporter=line --workers=1
