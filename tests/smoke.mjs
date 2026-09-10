@@ -23,6 +23,15 @@ test('HTML содержит все основные экраны и новый �
   assert.match(html,/type="module" src="\.\/app\.js"/);
 });
 
+test('исходная главная больше не содержит старую комнату и высокую шапку',()=>{
+  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  assert.doesNotMatch(html,/photo-1600210492486-724fe5c67fb0/);
+  assert.doesNotMatch(html,/\.hero\{[^}]*min-height:310px/);
+  assert.doesNotMatch(html,/Маленькое место для вещей, которые нам нравятся/);
+  assert.match(html,/\.hero\{[^}]*min-height:0/);
+  assert.match(html,/linear-gradient\(145deg,#6c5962 0%,#9b6d78 45%,#c98d84 100%\)/);
+});
+
 test('JS содержит профиль автора и визуальный индикатор нового',()=>{
   const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
   assert.match(js,/id="profileSetup"/);assert.match(js,/notify-badge/);assert.match(js,/activity-lamp/);assert.match(js,/author:/);
@@ -34,6 +43,7 @@ test('подключены социальные улучшения и PWA',()=>{
   const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
   const manifest=JSON.parse(readFileSync(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
   assert.match(core,/social-upgrades\.js/);
+  assert.match(core,/home-layout\.js/);
   for(const feature of ['social_sync','comment_add','reaction_toggle','push_subscribe','push_test'])assert.match(social,new RegExp(feature));
   assert.match(sw,/showNotification/);assert.equal(manifest.name,'Мы вдвоём');assert.equal(manifest.display,'standalone');
 });
