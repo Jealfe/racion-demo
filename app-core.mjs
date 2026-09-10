@@ -30,7 +30,7 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
       try{
         const response=await nativeFetch(input,nextInit);
         if(response.status<500 && response.status!==429){
-          sessionStorage.removeItem('us_family_recovery_reload');
+          if(response.ok) sessionStorage.removeItem('us_family_recovery_reload');
           return response;
         }
         if(attempt===2) return response;
