@@ -21,6 +21,7 @@ jobs:
           node --check design-board.js
           node --check ui-fixes.js
           node --check social-upgrades.js
+          node --check home-layout.js
           node --check sw.js
       - name: Run smoke tests
         run: node tests/smoke.mjs
