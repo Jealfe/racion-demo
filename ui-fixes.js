@@ -8,16 +8,12 @@ const css=document.createElement('style');css.textContent=`
 #wishList .list-item.done,#ideaList .list-item.done{display:grid!important;opacity:.72;background:#f7f4f0;border-color:#e8dfd7}#wishList .list-item.done b,#ideaList .list-item.done b{text-decoration:line-through;color:#8e8781}#wishList .wish-done[data-state="done"],#ideaList .idea-done[data-state="done"]{background:#dfeee2;color:#39724a;font-weight:900}#wishList .wish-done[data-state="open"],#ideaList .idea-done[data-state="open"]{background:#f3efeb;color:#444}
 .delete-confirm{z-index:300!important}.delete-confirm .modal-card{max-width:330px;text-align:center;padding:24px 20px 18px;border-radius:26px}.delete-confirm .confirm-icon{width:58px;height:58px;margin:0 auto 12px;border-radius:20px;display:grid;place-items:center;background:#fff0f0;font-size:28px;animation:confirmWobble .38s cubic-bezier(.22,1,.36,1)}.delete-confirm h3{margin:0;font-size:20px}.delete-confirm p{margin:8px auto 18px;max-width:250px;color:#8b8179;font-size:11px;line-height:1.5}.delete-confirm .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.delete-confirm button{border:0;border-radius:15px;padding:13px 10px;font:inherit;font-size:12px;font-weight:850;cursor:pointer}.delete-confirm .cancel-delete{background:#f3efeb;color:#5e5650}.delete-confirm .confirm-delete{background:#df5363;color:#fff;box-shadow:0 7px 18px rgba(197,67,83,.20)}@keyframes confirmWobble{0%{transform:scale(.75) rotate(-7deg)}70%{transform:scale(1.05) rotate(2deg)}100%{transform:none}}
 `;document.head.appendChild(css);
-
 function unread(){try{const u=JSON.parse(localStorage.getItem('us_unread')||'{}');return u&&typeof u==='object'?u:{}}catch{return {}}}
 function refreshActivity(){const sig=$('#activitySignal'),txt=$('#activityText');if(!sig||!txt)return;const u=unread(),parts=Object.entries(names).filter(([k])=>(Number(u[k])||0)>0).map(([k,n])=>`${n}: ${u[k]}`),first=Object.keys(names).find(k=>(Number(u[k])||0)>0)||'';sig.classList.toggle('show',parts.length>0);txt.textContent=parts.join(' · ');sig.dataset.section=first;$$('.notify-badge').forEach(b=>{if((b.textContent||'').trim()==='0')b.classList.remove('show')})}
 function readList(key){try{const a=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(a)?a:[]}catch{return []}}
 function saveList(key,a){localStorage.setItem(key,JSON.stringify(a))}
 function isCloudId(id){return typeof id==='string'&&/^[0-9a-f-]{30,}$/i.test(id)}
-const toggleCfg={
-  wish:{key:'us_wishes',button:'.wish-done',doneText:'исполнено',openText:'хочется',doneTitle:'Вернуть в хотелки',openTitle:'Отметить выполненной',error:'Не удалось изменить хотелку'},
-  idea:{key:'us_ideas',button:'.idea-done',doneText:'готово',openText:'в списке',doneTitle:'Вернуть в список',openTitle:'Отметить выполненной',error:'Не удалось изменить идею'}
-};
+const toggleCfg={wish:{key:'us_wishes',button:'.wish-done',doneText:'исполнено',openText:'хочется',doneTitle:'Вернуть в хотелки',openTitle:'Отметить выполненной',error:'Не удалось изменить хотелку'},idea:{key:'us_ideas',button:'.idea-done',doneText:'готово',openText:'в списке',doneTitle:'Вернуть в список',openTitle:'Отметить выполненной',error:'Не удалось изменить идею'}};
 function cfgForButton(btn){return btn.matches('.wish-done')?toggleCfg.wish:toggleCfg.idea}
 function statusText(x,cfg){const author=String(x.author||'').trim();return `${author?author+' · ':''}${x.done?cfg.doneText:cfg.openText}`}
 function paintToggle(btn,x,cfg){const row=btn.closest('.list-item');if(!row)return;row.classList.toggle('done',Boolean(x.done));btn.textContent=x.done?'↩':'✓';btn.dataset.state=x.done?'done':'open';btn.title=x.done?cfg.doneTitle:cfg.openTitle;btn.setAttribute('aria-label',btn.title);const content=[...row.children].find(el=>el.tagName==='DIV'&&!el.classList.contains('ico')&&!el.classList.contains('row'));const status=content?.querySelector('span');if(status)status.textContent=statusText(x,cfg)}
@@ -25,7 +21,6 @@ async function syncToggleState(x){const token=(localStorage.getItem('us_family_t
 function showToast(text){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(window.__fixToast);window.__fixToast=setTimeout(()=>t.classList.remove('show'),1900)}
 async function toggleItem(btn){const cfg=cfgForButton(btn),id=String(btn.dataset.id||''),a=readList(cfg.key),x=a.find(i=>String(i.id)===id);if(!x)return;const previous=Boolean(x.done),next=!previous;x.done=next;saveList(cfg.key,a);paintToggle(btn,x,cfg);try{await syncToggleState(x);const fresh=readList(cfg.key),same=fresh.find(i=>String(i.id)===id);if(same){same.done=next;saveList(cfg.key,fresh);paintToggle(btn,same,cfg)}}catch(err){const fresh=readList(cfg.key),same=fresh.find(i=>String(i.id)===id);if(same){same.done=previous;saveList(cfg.key,fresh);paintToggle(btn,same,cfg)}showToast(cfg.error);console.error(err)}}
 function refreshToggles(){for(const cfg of Object.values(toggleCfg)){$$(cfg.button).forEach(btn=>{const x=readList(cfg.key).find(i=>String(i.id)===String(btn.dataset.id));if(x)paintToggle(btn,x,cfg)})}}
-
 const deleteSelector='.wish-del,#ideaList .idea-del,.like-del,.moment-del,.del-movie,.idea-card [data-del]';
 const allowedDelete=new WeakSet();let pendingDelete=null;
 const confirmBox=document.createElement('div');confirmBox.id='deleteConfirm';confirmBox.className='overlay delete-confirm';confirmBox.innerHTML='<div class="modal-card"><div class="confirm-icon">🗑️</div><h3>Удалить запись?</h3><p id="deleteConfirmText">Она исчезнет у вас обоих.</p><div class="confirm-actions"><button class="cancel-delete" type="button">Отмена</button><button class="confirm-delete" type="button">Удалить</button></div></div>';document.body.appendChild(confirmBox);
@@ -35,15 +30,10 @@ function closeDelete(){pendingDelete=null;confirmBox.classList.remove('show')}
 confirmBox.querySelector('.cancel-delete').onclick=closeDelete;
 confirmBox.querySelector('.confirm-delete').onclick=()=>{const el=pendingDelete;if(!el)return closeDelete();allowedDelete.add(el);closeDelete();el.click()};
 confirmBox.addEventListener('click',e=>{if(e.target===confirmBox)closeDelete()});
-
-document.addEventListener('click',e=>{
-  const toggle=e.target.closest?.('.wish-done,.idea-done');if(toggle){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toggleItem(toggle);return}
-  const del=e.target.closest?.(deleteSelector);if(del){if(allowedDelete.has(del)){allowedDelete.delete(del);return}e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();askDelete(del);return}
-  const s=e.target.closest?.('#activitySignal');if(!s||s.dataset.section!=='designs')return;e.preventDefault();e.stopImmediatePropagation();$('[data-open="designs"]')?.click()
-},true);
+document.addEventListener('click',e=>{const toggle=e.target.closest?.('.wish-done,.idea-done');if(toggle){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toggleItem(toggle);return}const del=e.target.closest?.(deleteSelector);if(del){if(allowedDelete.has(del)){allowedDelete.delete(del);return}e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();askDelete(del);return}const s=e.target.closest?.('#activitySignal');if(!s||s.dataset.section!=='designs')return;e.preventDefault();e.stopImmediatePropagation();$('[data-open="designs"]')?.click()},true);
 window.addEventListener('storage',()=>setTimeout(refreshActivity,0));
 setInterval(refreshActivity,1200);
 const observer=new MutationObserver(refreshToggles);
-function init(){refreshActivity();refreshToggles();['#wishList','#ideaList'].forEach(sel=>{const list=$(sel);if(list)observer.observe(list,{childList:true,subtree:true})})}
+function init(){refreshActivity();refreshToggles();['#wishList','#ideaList'].forEach(sel=>{const list=$(sel);if(list)observer.observe(list,{childList:true})})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 }
