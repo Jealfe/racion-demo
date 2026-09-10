@@ -11,6 +11,10 @@ export function makeMessageId(now=Date.now()){
   return `m_${Number(now).toString(36)}_${Math.random().toString(36).slice(2,8)}`;
 }
 
+export function normalizeAuthor(value=''){
+  return String(value||'').trim().replace(/\s+/g,' ').slice(0,32);
+}
+
 export function encodeThanksPayload(data){
   return encodeURIComponent(JSON.stringify(data));
 }
@@ -18,13 +22,18 @@ export function encodeThanksPayload(data){
 export function decodeThanksPayload(value){
   const d=JSON.parse(decodeURIComponent(value));
   if(!d || typeof d.text!=='string' || !d.text.trim()) throw new Error('Invalid thanks payload');
-  return {id:String(d.id||''),text:d.text.trim(),date:String(d.date||'')};
+  return {
+    id:String(d.id||''),
+    text:d.text.trim(),
+    date:String(d.date||''),
+    author:normalizeAuthor(d.author||'')
+  };
 }
 
 export function addUniqueThanks(items,item){
   const list=Array.isArray(items)?items.slice():[];
   if(item.refId && list.some(x=>x.refId===item.refId)) return list;
-  const duplicate=list.some(x=>x.text===item.text && x.received===item.received && Math.abs(new Date(x.date).getTime()-new Date(item.date).getTime())<3000);
+  const duplicate=list.some(x=>x.text===item.text && x.received===item.received && (x.author||'')===(item.author||'') && Math.abs(new Date(x.date).getTime()-new Date(item.date).getTime())<3000);
   if(duplicate) return list;
   list.unshift(item);
   return list.slice(0,100);
@@ -44,16 +53,7 @@ export function localDateValue(date=new Date()){
   return `${y}-${m}-${d}`;
 }
 
-// Если ссылка #thanks=... открывается в уже загруженной вкладке, модульный JS не перезапускается.
-// Подхватываем изменение hash отдельно, чтобы сообщение всё равно появилось.
-if(typeof window!=='undefined' && typeof document!=='undefined'){
-  window.addEventListener('hashchange',()=>{
-    if(!location.hash.startsWith('#thanks=')) return;
-    try{
-      const d=decodeThanksPayload(location.hash.slice(8));
-      const text=document.querySelector('#receivedText');
-      const modal=document.querySelector('#received');
-      if(text&&modal){text.textContent=d.text;modal.classList.add('show');window.__incomingThanks=d;}
-    }catch{}
-  });
+export function unreadTotal(value={}){
+  if(!value || typeof value!=='object') return 0;
+  return Object.values(value).reduce((sum,n)=>sum+(Number.isFinite(Number(n))?Math.max(0,Number(n)):0),0);
 }
