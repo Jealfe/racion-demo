@@ -63,8 +63,8 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
   document.head.appendChild(css);
 
   const cards={
-    moments:{title:'Наши моменты',subtitle:'Фото, даты и воспоминания',icon:'❤️',photo:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=78'},
-    wishlist:{title:'Хотелки',subtitle:'Всё, что хочется',icon:'🛍️',photo:'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=700&q=78'},
+    moments:{title:'Наши моменты',subtitle:'Фото, даты и воспоминания',icon:'❤️',photo:'https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&w=700&q=78'},
+    wishlist:{title:'Хотелки',subtitle:'Всё, что хочется',icon:'🛍️',photo:'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=700&q=78'},
     designs:{title:'Дом и дизайны',subtitle:'Идеи для дома',icon:'🏠'},
     movies:{title:'Что посмотреть',subtitle:'Фильм на вечер',icon:'🎬'},
     food:{title:'Что поесть',subtitle:'Быстрый выбор',icon:'🍕'},
