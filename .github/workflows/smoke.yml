@@ -19,6 +19,9 @@ jobs:
           node --check app-core.mjs
           node --check ui-polish.js
           node --check design-board.js
+          node --check ui-fixes.js
+          node --check social-upgrades.js
+          node --check sw.js
       - name: Run smoke tests
         run: node tests/smoke.mjs
       - name: Install browser test runner
