@@ -32,18 +32,28 @@ test('исходная главная больше не содержит ста�
   assert.match(html,/linear-gradient\(145deg,#6c5962 0%,#9b6d78 45%,#c98d84 100%\)/);
 });
 
+test('облачная синхронизация перерисовывает только изменившиеся разделы',()=>{
+  const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+  assert.match(js,/function sameData\(a,b\)/);
+  assert.match(js,/changedKeys\.push\(k\)/);
+  assert.match(js,/changedKeys\.forEach\(renderCloudKey\)/);
+  assert.match(js,/if\(unreadChanged\)renderIndicators\(\)/);
+  assert.doesNotMatch(js,/renderThanks\(\);renderWishes\(\);renderIdeas\(\);renderLikes\(\);renderMoments\(\);renderMovies\(\);renderIndicators\(\);/);
+});
+
 test('JS содержит профиль автора и визуальный индикатор нового',()=>{
   const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
   assert.match(js,/id="profileSetup"/);assert.match(js,/notify-badge/);assert.match(js,/activity-lamp/);assert.match(js,/author:/);
 });
 
-test('подключены социальные улучшения и PWA',()=>{
+test('подключены социальные улучшения и PWA без старого DOM-костыля',()=>{
   const core=readFileSync(new URL('../app-core.mjs',import.meta.url),'utf8');
   const social=readFileSync(new URL('../social-upgrades.js',import.meta.url),'utf8');
   const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
   const manifest=JSON.parse(readFileSync(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
   assert.match(core,/social-upgrades\.js/);
   assert.match(core,/home-layout\.js/);
+  assert.doesNotMatch(core,/sync-stability\.js/);
   for(const feature of ['social_sync','comment_add','reaction_toggle','push_subscribe','push_test'])assert.match(social,new RegExp(feature));
   assert.match(sw,/showNotification/);assert.equal(manifest.name,'Мы вдвоём');assert.equal(manifest.display,'standalone');
 });
