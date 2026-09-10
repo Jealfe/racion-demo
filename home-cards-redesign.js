@@ -1,65 +1,59 @@
 if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
   const $=s=>document.querySelector(s);
-  const $$=s=>[...document.querySelectorAll(s)];
 
   const css=document.createElement('style');
   css.id='home-cards-redesign-styles';
   css.textContent=`
-  /* Белая минималистичная иконка настроек */
-  #settingsGear{color:#fff!important;background:rgba(255,255,255,.17)!important;border:1px solid rgba(255,255,255,.08)!important}
-  #settingsGear svg{display:block;width:17px;height:17px;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+  /* Кнопка настроек — лёгкие белые ползунки */
+  #settingsGear{color:#fff!important;background:rgba(255,255,255,.13)!important;border:1px solid rgba(255,255,255,.18)!important;box-shadow:none!important}
+  #settingsGear svg{display:block;width:16px;height:16px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
 
-  /* Блок «Наше»: компактный гибрид из макета */
-  #home .section-title.home-menu-title{margin:20px 5px 9px!important;align-items:center!important}
-  #home .section-title.home-menu-title h2{font-size:23px!important;letter-spacing:-.035em!important}
-  #home .section-title.home-menu-title span{font-size:10px!important;color:#948b85!important}
-  #home .menu.home-menu-redesign{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
-  #home .menu.home-menu-redesign>.tile{margin:0!important;box-shadow:0 8px 22px rgba(58,43,35,.052)!important;border:1px solid rgba(232,224,216,.82)!important;background-color:rgba(255,255,255,.94)!important;transform:none;overflow:hidden!important}
+  /* «Наше» — плотнее и ближе к согласованному макету */
+  #home .section-title.home-menu-title{margin:18px 5px 8px!important;align-items:center!important}
+  #home .section-title.home-menu-title h2{font-size:21px!important;letter-spacing:-.035em!important}
+  #home .section-title.home-menu-title span{font-size:9px!important;color:#9a918b!important}
+  #home .menu.home-menu-redesign{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #home .menu.home-menu-redesign>.tile{margin:0!important;border:1px solid rgba(231,224,217,.82)!important;background-color:rgba(255,255,255,.96)!important;box-shadow:0 6px 18px rgba(58,43,35,.045)!important;overflow:hidden!important;transform:none!important}
   #home .menu.home-menu-redesign>.tile:before{display:none!important}
-  #home .menu.home-menu-redesign>.tile:active{transform:scale(.985)!important}
+  #home .menu.home-menu-redesign>.tile:active{transform:scale(.986)!important}
 
-  /* Две широкие карточки — чуть ниже */
-  #home .menu.home-menu-redesign>.home-feature{grid-column:1/-1!important;min-height:92px!important;height:92px!important;border-radius:21px!important;padding:11px 50px 11px 12px!important;display:grid!important;grid-template-columns:58px minmax(0,1fr)!important;align-items:center!important;gap:11px!important;position:relative!important;background-size:46% 100%!important;background-repeat:no-repeat!important;background-position:right center!important}
-  #home .menu.home-menu-redesign>.home-feature[data-open="designs"]{background-image:linear-gradient(90deg,#fff 0%,#fff 49%,rgba(255,255,255,.87) 61%,rgba(255,255,255,.22) 100%),url('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=520&q=72')!important}
-  #home .menu.home-menu-redesign>.home-feature[data-open="moments"]{background-image:linear-gradient(90deg,#fff 0%,#fff 49%,rgba(255,255,255,.88) 61%,rgba(255,255,255,.22) 100%),url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=520&q=72')!important}
-  #home .home-feature .tile-icon{width:56px!important;height:56px!important;display:grid!important;place-items:center!important;border-radius:18px!important;background:linear-gradient(145deg,#fff7f4,#f8e7e5)!important;font-size:28px!important;position:relative!important;z-index:2!important;box-shadow:inset 0 0 0 1px rgba(225,207,198,.45)!important}
+  /* Два акцента: Наши моменты и Хотелки */
+  #home .menu.home-menu-redesign>.home-feature{grid-column:1/-1!important;height:80px!important;min-height:80px!important;border-radius:19px!important;padding:9px 43px 9px 10px!important;display:grid!important;grid-template-columns:48px minmax(0,1fr)!important;align-items:center!important;gap:9px!important;position:relative!important;background-repeat:no-repeat!important;background-position:right center!important;background-size:42% 100%!important}
+  #home .menu.home-menu-redesign>.home-feature[data-open="moments"]{background-image:linear-gradient(90deg,#fff 0%,#fff 55%,rgba(255,255,255,.88) 66%,rgba(255,255,255,.22) 100%),url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=520&q=72')!important}
+  #home .menu.home-menu-redesign>.home-feature[data-open="wishlist"]{background-image:linear-gradient(90deg,#fff 0%,#fff 55%,rgba(255,255,255,.9) 66%,rgba(255,255,255,.28) 100%),url('https://images.unsplash.com/photo-1513883049090-d0b7439799bf?auto=format&fit=crop&w=520&q=72')!important}
+  #home .home-feature .tile-icon{width:46px!important;height:46px!important;display:grid!important;place-items:center!important;border-radius:15px!important;background:linear-gradient(145deg,#fff8f5,#f8e9e7)!important;font-size:23px!important;margin:0!important;position:relative!important;z-index:2!important;box-shadow:inset 0 0 0 1px rgba(225,207,198,.4)!important}
   #home .home-feature>div:not(.tile-icon):not(.home-card-arrow):not(.home-feature-note){position:relative!important;z-index:2!important;min-width:0!important}
-  #home .home-feature strong{font-size:15px!important;line-height:1.14!important;letter-spacing:-.02em!important;margin:0!important}
-  #home .home-feature small{font-size:9.5px!important;line-height:1.25!important;margin-top:4px!important;color:#918984!important;max-width:175px!important}
-  #home .home-feature-note{display:none;position:absolute;right:47px;top:14px;width:74px;text-align:center;font-family:cursive;font-size:12px;line-height:1.02;color:#b37375;transform:rotate(-4deg);z-index:2;pointer-events:none}
-  #home .home-feature[data-open="moments"] .home-feature-note{top:16px;transform:rotate(-3deg)}
+  #home .home-feature strong{font-size:14px!important;line-height:1.08!important;letter-spacing:-.02em!important;margin:0!important}
+  #home .home-feature small{font-size:8.7px!important;line-height:1.18!important;margin-top:3px!important;color:#948c86!important;max-width:165px!important}
+  #home .home-feature-note{display:none!important}
 
-  /* Маленькие карточки — заметно компактнее */
-  #home .menu.home-menu-redesign>.home-mini{min-height:64px!important;height:64px!important;border-radius:18px!important;padding:7px 27px 7px 8px!important;display:grid!important;grid-template-columns:40px minmax(0,1fr)!important;align-items:center!important;gap:8px!important;position:relative!important}
-  #home .home-mini .tile-icon{width:38px!important;height:38px!important;display:grid!important;place-items:center!important;border-radius:13px!important;background:#f8eeeb!important;font-size:20px!important;margin:0!important}
-  #home .home-mini:nth-of-type(4n+1) .tile-icon{background:#f9eeee!important}
-  #home .home-mini:nth-of-type(4n+2) .tile-icon{background:#fff3df!important}
-  #home .home-mini:nth-of-type(4n+3) .tile-icon{background:#f5edf5!important}
-  #home .home-mini:nth-of-type(4n+4) .tile-icon{background:#fff5dc!important}
+  /* Все остальные — маленькие спокойные карточки */
+  #home .menu.home-menu-redesign>.home-mini{height:56px!important;min-height:56px!important;border-radius:17px!important;padding:6px 24px 6px 7px!important;display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;align-items:center!important;gap:7px!important;position:relative!important;background-image:none!important}
+  #home .home-mini .tile-icon{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;border-radius:11px!important;background:#f8eeeb!important;font-size:17px!important;margin:0!important}
+  #home .home-mini[data-open="designs"] .tile-icon{background:#f3ece7!important}
+  #home .home-mini[data-open="movies"] .tile-icon{background:#f9eded!important}
+  #home .home-mini[data-open="food"] .tile-icon{background:#fff2dc!important}
+  #home .home-mini[data-open="ideas"] .tile-icon{background:#fff4d8!important}
+  #home .home-mini[data-open="likes"] .tile-icon{background:#f4edf5!important}
+  #home .home-mini[data-open="surprise"] .tile-icon{background:#f8ecef!important}
   #home .home-mini>div:not(.tile-icon):not(.home-card-arrow){min-width:0!important}
-  #home .home-mini strong{font-size:12.2px!important;line-height:1.08!important;letter-spacing:-.015em!important;margin:0!important;white-space:normal!important}
-  #home .home-mini small{display:block!important;font-size:8.5px!important;line-height:1.12!important;color:#938b85!important;margin-top:3px!important;white-space:normal!important}
-  #home .home-card-arrow{position:absolute!important;right:8px!important;top:50%!important;transform:translateY(-50%)!important;width:23px!important;height:23px!important;display:grid!important;place-items:center!important;border-radius:9px!important;background:rgba(255,255,255,.88)!important;color:#9b8f87!important;font-size:17px!important;font-weight:400!important;z-index:4!important;pointer-events:none!important}
-  #home .home-feature .home-card-arrow{right:10px!important;width:28px!important;height:28px!important;border-radius:11px!important;color:#a06d68!important;box-shadow:0 4px 14px rgba(68,45,38,.05)!important}
+  #home .home-mini strong{font-size:11.3px!important;line-height:1.05!important;letter-spacing:-.012em!important;margin:0!important;white-space:normal!important}
+  #home .home-mini small{display:block!important;font-size:7.7px!important;line-height:1.08!important;color:#9a928d!important;margin-top:2px!important;white-space:normal!important}
+
+  #home .home-card-arrow{position:absolute!important;right:7px!important;top:50%!important;transform:translateY(-50%)!important;width:20px!important;height:20px!important;display:grid!important;place-items:center!important;border-radius:8px!important;background:rgba(255,255,255,.88)!important;color:#a19891!important;font-size:15px!important;font-weight:400!important;z-index:4!important;pointer-events:none!important}
+  #home .home-feature .home-card-arrow{right:8px!important;width:24px!important;height:24px!important;border-radius:9px!important;color:#a06d68!important;background:rgba(255,255,255,.9)!important}
   #home .menu.home-menu-redesign>.home-hidden{display:none!important}
+  #home .menu.home-menu-redesign .notify-badge{right:5px!important;top:4px!important;z-index:8!important;transform:scale(.72);transform-origin:top right}
 
-  /* Счётчики нового должны оставаться видимыми на новом дизайне */
-  #home .menu.home-menu-redesign .notify-badge{right:6px!important;top:5px!important;z-index:8!important;transform:scale(.78);transform-origin:top right}
-  #home .home-feature .notify-badge{right:9px!important;top:6px!important}
-
-  @media(min-width:400px){
-    #home .home-feature-note{display:block}
-    #home .home-feature strong{font-size:16px!important}
-    #home .home-mini strong{font-size:12.6px!important}
-  }
   @media(max-width:365px){
-    #home .menu.home-menu-redesign{gap:7px!important}
-    #home .menu.home-menu-redesign>.home-feature{height:86px!important;min-height:86px!important;grid-template-columns:52px minmax(0,1fr)!important;padding:10px 45px 10px 10px!important;gap:9px!important}
-    #home .home-feature .tile-icon{width:50px!important;height:50px!important;border-radius:16px!important;font-size:25px!important}
-    #home .menu.home-menu-redesign>.home-mini{height:60px!important;min-height:60px!important;grid-template-columns:36px minmax(0,1fr)!important;padding-left:7px!important;gap:7px!important}
-    #home .home-mini .tile-icon{width:34px!important;height:34px!important;font-size:18px!important}
-    #home .home-mini strong{font-size:11.4px!important}
-    #home .home-mini small{font-size:8px!important}
+    #home .menu.home-menu-redesign{gap:6px!important}
+    #home .menu.home-menu-redesign>.home-feature{height:74px!important;min-height:74px!important;grid-template-columns:43px minmax(0,1fr)!important;padding:8px 39px 8px 8px!important;gap:8px!important}
+    #home .home-feature .tile-icon{width:41px!important;height:41px!important;border-radius:14px!important;font-size:21px!important}
+    #home .home-feature strong{font-size:13px!important}
+    #home .menu.home-menu-redesign>.home-mini{height:52px!important;min-height:52px!important;grid-template-columns:31px minmax(0,1fr)!important;padding-left:6px!important;gap:6px!important}
+    #home .home-mini .tile-icon{width:29px!important;height:29px!important;font-size:16px!important}
+    #home .home-mini strong{font-size:10.5px!important}
+    #home .home-mini small{font-size:7.2px!important}
   }
   `;
   document.head.appendChild(css);
@@ -77,13 +71,19 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
     if(!tile||tile.querySelector('.home-card-arrow'))return;
     const arrow=document.createElement('div');arrow.className='home-card-arrow';arrow.textContent='›';tile.appendChild(arrow);
   }
-  function feature(tile,note){
+  function clearNote(tile){tile?.querySelector('.home-feature-note')?.remove()}
+  function feature(tile){
     if(!tile)return;
-    tile.classList.remove('wide');tile.classList.add('home-feature');
-    if(!tile.querySelector('.home-feature-note')){const n=document.createElement('div');n.className='home-feature-note';n.textContent=note;tile.appendChild(n)}
-    addArrow(tile);
+    tile.classList.remove('wide','home-mini');
+    tile.classList.add('home-feature');
+    clearNote(tile);addArrow(tile);
   }
-  function mini(tile){if(!tile)return;tile.classList.remove('wide');tile.classList.add('home-mini');addArrow(tile)}
+  function mini(tile){
+    if(!tile)return;
+    tile.classList.remove('wide','home-feature');
+    tile.classList.add('home-mini');
+    clearNote(tile);addArrow(tile);
+  }
 
   function setup(){
     const menu=$('#home .menu');
@@ -102,27 +102,27 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
     const surprise=menu.querySelector('[data-open="surprise"]');
     const thanks=menu.querySelector('[data-open="thanks"]');
 
-    setCopy(designs,'Дом и дизайны','Идеи для будущего дома');
     setCopy(moments,'Наши моменты','Фото, даты и воспоминания');
+    setCopy(wishlist,'Хотелки','Всё, что хочется');
+    setCopy(designs,'Дом и дизайны','Идеи для дома');
     setCopy(movies,'Что посмотреть','Фильм на вечер');
     setCopy(food,'Что поесть','Быстрый выбор');
-    setCopy(wishlist,'Хотелки','Всё, что хочется');
     setCopy(ideas,'Идеи','Чтобы не забыть');
     setCopy(likes,'Нам нравится','Всё любимое');
     setCopy(surprise,'Сюрприз','Случайная приятность');
 
-    feature(designs,'Наш дом');
-    feature(moments,'Маленькие счастья');
-    [movies,food,wishlist,ideas,likes,surprise].forEach(mini);
+    feature(moments);
+    feature(wishlist);
+    [designs,movies,food,ideas,likes,surprise].forEach(mini);
     if(thanks)thanks.classList.add('home-hidden');
 
-    [designs,moments,movies,food,wishlist,ideas,likes,surprise,thanks].forEach(x=>x&&menu.appendChild(x));
+    [moments,wishlist,designs,movies,food,ideas,likes,surprise,thanks].forEach(x=>x&&menu.appendChild(x));
 
     const gear=$('#settingsGear');
-    if(gear&&!gear.dataset.iconSliders){
-      gear.dataset.iconSliders='1';
+    if(gear){
+      gear.dataset.iconSliders='2';
       gear.textContent='';
-      gear.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7"></path><path d="M15 7h5"></path><circle cx="13" cy="7" r="2"></circle><path d="M4 12h3"></path><path d="M11 12h9"></path><circle cx="9" cy="12" r="2"></circle><path d="M4 17h9"></path><path d="M17 17h3"></path><circle cx="15" cy="17" r="2"></circle></svg>';
+      gear.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h4"></path><path d="M13 7h6"></path><circle cx="11" cy="7" r="2"></circle><path d="M5 12h8"></path><path d="M17 12h2"></path><circle cx="15" cy="12" r="2"></circle><path d="M5 17h2"></path><path d="M11 17h8"></path><circle cx="9" cy="17" r="2"></circle></svg>';
     }
     return true;
   }
