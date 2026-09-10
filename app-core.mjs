@@ -19,9 +19,11 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
   window.__familyApiFetchPatched=true;
 }
 
-// В браузере визуальный слой загружается до основной логики app.js.
-// В Node-тестах он не исполняется, потому что DOM там отсутствует.
-if(typeof window!=='undefined') await import('./ui-polish.js');
+// Browser-only UI layers load before app.js binds its handlers.
+if(typeof window!=='undefined'){
+  await import('./ui-polish.js');
+  await import('./design-board.js');
+}
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
 
