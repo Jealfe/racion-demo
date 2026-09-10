@@ -79,6 +79,7 @@ if(typeof window!=='undefined'){
   window.addEventListener('load',()=>setTimeout(watchCloudStatus,1200),{once:true});
   setInterval(watchCloudStatus,5000);
 
+  await import('./sync-stability.js');
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
