@@ -1,3 +1,5 @@
+import './ui-polish.js';
+
 const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
 const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
 
@@ -18,9 +20,6 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
   };
   window.__familyApiFetchPatched=true;
 }
-
-// Визуальный слой вынесен отдельно, чтобы не смешивать его с логикой данных.
-if(typeof window!=='undefined') import('./ui-polish.js').catch(e=>console.error('UI polish failed',e));
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
 
