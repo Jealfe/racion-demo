@@ -64,7 +64,7 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
 
   const cards={
     moments:{title:'Наши моменты',subtitle:'Фото, даты и воспоминания',icon:'❤️',photo:'./assets/moments-loveis.webp'},
-    wishlist:{title:'Хотелки',subtitle:'Всё, что хочется',icon:'🛍️',photo:'./assets/wishlist-loveis.webp'},
+    wishlist:{title:'Хотелки',subtitle:'Всё, что хочется',icon:'🛍️',photo:'./assets/wishlist-loveis-v2.webp'},
     designs:{title:'Дом и дизайны',subtitle:'Идеи для дома',icon:'🏠'},
     movies:{title:'Что посмотреть',subtitle:'Фильм на вечер',icon:'🎬'},
     food:{title:'Что поесть',subtitle:'Быстрый выбор',icon:'🍕'},
