@@ -30,7 +30,10 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
       try{
         const response=await nativeFetch(input,nextInit);
         if(response.status<500 && response.status!==429){
-          if(response.ok) sessionStorage.removeItem('us_family_recovery_reload');
+          if(response.ok){
+            sessionStorage.removeItem('us_family_recovery_reload');
+            sessionStorage.removeItem('us_family_status_reload');
+          }
           return response;
         }
         if(attempt===2) return response;
@@ -47,6 +50,22 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
 }
 
 if(typeof window!=='undefined'){
+  const watchCloudStatus=()=>{
+    const token=(localStorage.getItem('us_family_token')||'').trim();
+    const pill=document.querySelector('.local-pill');
+    if(!token||!pill)return;
+    if(pill.textContent.includes('общая синхронизация')){
+      sessionStorage.removeItem('us_family_status_reload');
+      return;
+    }
+    if(pill.textContent.includes('только это устройство')&&!sessionStorage.getItem('us_family_status_reload')){
+      sessionStorage.setItem('us_family_status_reload','1');
+      setTimeout(()=>location.reload(),2500);
+    }
+  };
+  window.addEventListener('load',()=>setTimeout(watchCloudStatus,1200),{once:true});
+  setInterval(watchCloudStatus,5000);
+
   await import('./ui-polish.js');
   await import('./design-board.js');
   await import('./ui-fixes.js');
