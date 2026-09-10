@@ -1,3 +1,24 @@
+const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
+const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
+
+// family-api is called directly from the static GitHub Pages app. New Supabase
+// projects expect the public publishable key on the `apikey` header even when
+// the Edge Function performs its own device-token authentication.
+if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__familyApiFetchPatched){
+  const nativeFetch=window.fetch.bind(window);
+  window.fetch=(input,init={})=>{
+    const url=typeof input==='string'?input:(input&&typeof input.url==='string'?input.url:String(input));
+    if(url.includes(FAMILY_API_HOST+'/functions/v1/family-api')){
+      const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
+      const headers=new Headers(init.headers||sourceHeaders||{});
+      if(!headers.has('apikey')) headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
+      init={...init,headers};
+    }
+    return nativeFetch(input,init);
+  };
+  window.__familyApiFetchPatched=true;
+}
+
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
 
 export function makeThanksText(reason='',custom=''){
