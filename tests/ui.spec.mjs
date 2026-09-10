@@ -187,3 +187,42 @@ test('момент с картинкой добавляется с авторо�
   await confirmDelete(page,page.locator('.moment-del'));
   await expect(page.locator('#momentGrid')).not.toContainText('Тестовый момент');
 });
+
+test('облачная запись получает ленту, реакции, комментарии и редактирование своей записи',async({page})=>{
+  const id='11111111-1111-4111-8111-111111111111';
+  let text='Кофемашина',comments=[],reactions=[];
+  await page.route('**/functions/v1/family-api',async route=>{
+    const req=route.request();let body={};try{body=req.postDataJSON()||{}}catch{}
+    const item=()=>({id,kind:'wishlist',text,emoji:'🎁',data:{done:false},author_name:'Муж',created_at:'2026-09-10T12:00:00.000Z',updated_at:'2026-09-10T12:00:00.000Z'});
+    let data={ok:true};
+    if(body.action==='whoami')data={ok:true,author:'Муж'};
+    else if(body.action==='sync')data={ok:true,author:'Муж',items:[item()],unread:{thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0}};
+    else if(body.action==='social_sync')data={ok:true,author:'Муж',items:[item()],comments,reactions,activity:[{id:'a1',actor_name:'Жена',action:'comment',kind:'wishlist',item_id:id,text:'А эта модель тихая?',data:{},created_at:'2026-09-10T12:05:00.000Z'}]};
+    else if(body.action==='mark_read')data={ok:true,unread:{thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0}};
+    else if(body.action==='reaction_toggle'){
+      const at=reactions.findIndex(r=>r.item_id===id&&r.author_name==='Муж'&&r.emoji===body.emoji);
+      if(at>=0){reactions.splice(at,1);data={ok:true,active:false}}else{reactions.push({item_id:id,author_name:'Муж',emoji:body.emoji,created_at:new Date().toISOString()});data={ok:true,active:true}}
+    }else if(body.action==='comment_add'){comments.push({id:'c1',item_id:id,author_name:'Муж',text:body.text,created_at:new Date().toISOString()});data={ok:true,id:'c1'}}
+    else if(body.action==='edit'){text=body.text;data={ok:true}};
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  });
+  const key='mock_family_token_1234567890123456789012345678901234567890';
+  await page.goto(base+'#access='+key);
+  await expect(page.locator('.local-pill')).toContainText('общая синхронизация');
+  await expect(page.locator('#activityList')).toContainText('Жена написал(а) комментарий');
+  await page.locator('[data-open="wishlist"]').click();
+  await expect(page.locator('#wishList')).toContainText('Кофемашина');
+  await expect(page.locator('#wishList .social-tools')).toBeVisible();
+  await page.locator('#wishList [data-react][data-emoji="❤️"]').click();
+  await expect(page.locator('#wishList [data-react][data-emoji="❤️"]')).toHaveClass(/active/);
+  await page.locator('#wishList [data-comments]').click();
+  await expect(page.locator('#socialThread')).toHaveClass(/show/);
+  await page.locator('#threadInput').fill('Да, посмотрим отзывы');
+  await page.locator('#threadSend').click();
+  await expect(page.locator('#threadList')).toContainText('Да, посмотрим отзывы');
+  await page.locator('[data-social-close="socialThread"]').click();
+  await page.locator('#wishList [data-edit]').click();
+  await page.locator('#editInput').fill('Кофемашина с тихой кофемолкой');
+  await page.locator('#editSave').click();
+  await expect(page.locator('#wishList')).toContainText('Кофемашина с тихой кофемолкой');
+});
