@@ -64,18 +64,33 @@ function cloudRowsToLocal(items){
   }
   return out;
 }
+function sameData(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function renderCloudKey(key){({thanks:renderThanks,wishes:renderWishes,ideas:renderIdeas,likes:renderLikes,moments:renderMoments,movies:renderMovies}[key]?.())}
 async function syncCloud(){
   if(!cloudReady||cloudBusy)return;
   cloudBusy=true;
   try{
     const d=await cloudApi('sync');
-    profile={...profile,name:normalizeAuthor(d.author||profile.name||'')};localStore.set('profile',profile);updateProfileUI();
-    const mapped=cloudRowsToLocal(d.items);
+    const nextAuthor=normalizeAuthor(d.author||profile.name||'');
+    if(nextAuthor!==currentAuthor()){
+      profile={...profile,name:nextAuthor};
+      localStore.set('profile',profile);
+      updateProfileUI();
+    }
+    const mapped=cloudRowsToLocal(d.items),changedKeys=[];
     cloudApplying=true;
-    for(const [k,v] of Object.entries(mapped))localStore.set(k,v);
-    localStore.set('unread',d.unread||{});
+    for(const [k,v] of Object.entries(mapped)){
+      const current=localStore.get(k,[]);
+      if(!sameData(current,v)){
+        localStore.set(k,v);
+        changedKeys.push(k);
+      }
+    }
+    const nextUnread=d.unread||{},currentUnread=localStore.get('unread',{}),unreadChanged=!sameData(currentUnread,nextUnread);
+    if(unreadChanged)localStore.set('unread',nextUnread);
     cloudApplying=false;
-    renderThanks();renderWishes();renderIdeas();renderLikes();renderMoments();renderMovies();renderIndicators();
+    changedKeys.forEach(renderCloudKey);
+    if(unreadChanged)renderIndicators();
   }catch(e){console.error(e);cloudReady=false;setCloudStatus(false)}finally{cloudApplying=false;cloudBusy=false}
 }
 async function markCloudRead(section){
