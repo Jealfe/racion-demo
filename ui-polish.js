@@ -5,6 +5,11 @@ css.id='ui-polish-styles';
 css.textContent=`
 :root{--spring:cubic-bezier(.2,.8,.2,1);--soft-spring:cubic-bezier(.22,1,.36,1)}
 body{overflow-x:hidden}
+/* Главный hero: дата и заголовок теперь собраны плотнее, без большой пустоты. */
+#home .hero{min-height:250px;justify-content:flex-start;padding:86px 22px 22px}
+#home .hero h1{margin-top:0}
+#home .hero p{margin-top:10px}
+@media(max-width:360px){#home .hero{min-height:235px;padding:78px 18px 18px}}
 .screen.active{animation:screenEnter .42s var(--soft-spring) both}
 @keyframes screenEnter{from{opacity:0;transform:translateY(12px) scale(.994)}to{opacity:1;transform:none}}
 #home.active .hero{animation:heroEnter .65s var(--soft-spring) both}
