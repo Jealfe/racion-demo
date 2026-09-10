@@ -1,0 +1,21 @@
+name: Smoke tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check app-core.mjs
+      - name: Run smoke tests
+        run: node tests/smoke.mjs
