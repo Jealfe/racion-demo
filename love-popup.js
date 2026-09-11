@@ -1,4 +1,4 @@
-if(typeof document!=='undefined'&&!window.__lovePopupV1){
+if(typeof document!=='undefined'&&!window.__lovePopupV2){
   const API='https://jlejyppniaifdavllwid.supabase.co/functions/v1/family-api';
   const token=()=>localStorage.getItem('us_family_token')||'';
   async function api(action,payload={}){
@@ -23,30 +23,69 @@ if(typeof document!=='undefined'&&!window.__lovePopupV1){
   root.id='lovePopup';root.className='love-pop';root.setAttribute('role','dialog');root.setAttribute('aria-live','polite');
   root.innerHTML='<div class="love-pop-card"><div class="love-pop-heart">❤️</div><div class="love-pop-copy"><b id="lovePopupSender">Тебе отправили ❤️</b><strong id="lovePopupText">Я люблю тебя! ❤️</strong></div><div class="love-pop-actions"><button class="love-pop-reply" id="lovePopupReply">❤️ И я тебя</button></div><button class="love-pop-close" id="lovePopupClose" aria-label="Закрыть">×</button></div>';
   document.body.appendChild(root);
-  let hideTimer=0;
-  function showLove(sender='',message='Я люблю тебя! ❤️'){
+
+  let hideTimer=0,currentLoveId='';
+  async function serviceWorkerTarget(forceUpdate=false){
+    if(!('serviceWorker' in navigator))return null;
+    const reg=await navigator.serviceWorker.ready.catch(()=>null);
+    if(!reg)return navigator.serviceWorker.controller||null;
+    if(forceUpdate){try{await reg.update()}catch{}}
+    return reg.active||navigator.serviceWorker.controller||reg.waiting||reg.installing||null;
+  }
+  async function postToServiceWorker(data,forceUpdate=false){
+    const target=await serviceWorkerTarget(forceUpdate);
+    target?.postMessage(data);
+  }
+  function requestPendingLove(forceUpdate=false){postToServiceWorker({type:'love_pending_request'},forceUpdate).catch(()=>{})}
+  function acknowledgeLove(id){if(id)postToServiceWorker({type:'love_seen',id}).catch(()=>{})}
+
+  function showLove(sender='',message='Я люблю тебя! ❤️',id=''){
     const s=String(sender||'').replace(/\s*❤️\s*$/,'').trim();
+    currentLoveId=String(id||currentLoveId||'');
     document.getElementById('lovePopupSender').textContent=s?`${s} отправил(а) тебе ❤️`:'Тебе отправили ❤️';
     document.getElementById('lovePopupText').textContent=String(message||'Я люблю тебя! ❤️');
     root.classList.add('show');
-    clearTimeout(hideTimer);hideTimer=setTimeout(()=>root.classList.remove('show'),12000);
+    clearTimeout(hideTimer);
+    hideTimer=setTimeout(()=>root.classList.remove('show'),12000);
   }
   function readHash(){
     if(!location.hash.startsWith('#love='))return;
-    try{const d=JSON.parse(decodeURIComponent(location.hash.slice(6)));showLove(d.sender||'',d.message||'Я люблю тебя! ❤️')}catch{showLove()}
+    try{const d=JSON.parse(decodeURIComponent(location.hash.slice(6)));showLove(d.sender||'',d.message||'Я люблю тебя! ❤️',d.id||'')}catch{showLove()}
     history.replaceState(null,'',location.pathname+location.search);
   }
-  document.getElementById('lovePopupClose').onclick=()=>root.classList.remove('show');
+  function closeAndAcknowledge(){
+    const id=currentLoveId;currentLoveId='';
+    clearTimeout(hideTimer);root.classList.remove('show');
+    acknowledgeLove(id);
+  }
+  document.getElementById('lovePopupClose').onclick=closeAndAcknowledge;
   document.getElementById('lovePopupReply').onclick=async()=>{
     const b=document.getElementById('lovePopupReply');b.disabled=true;
-    try{await api('love_ping',{message:'И я тебя люблю! ❤️'});b.textContent='Отправлено ❤️';setTimeout(()=>root.classList.remove('show'),850)}
-    catch{b.textContent='Не получилось';setTimeout(()=>{b.textContent='❤️ И я тебя';b.disabled=false},1200);return}
+    try{
+      await api('love_ping',{message:'И я тебя люблю! ❤️'});
+      const id=currentLoveId;currentLoveId='';
+      b.textContent='Отправлено ❤️';
+      setTimeout(()=>{root.classList.remove('show');acknowledgeLove(id)},850);
+    }catch{
+      b.textContent='Не получилось';setTimeout(()=>{b.textContent='❤️ И я тебя';b.disabled=false},1200);return;
+    }
     setTimeout(()=>{b.textContent='❤️ И я тебя';b.disabled=false},1300);
   };
-  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.type==='love_ping')showLove(d.sender||'',d.message||'Я люблю тебя! ❤️')});
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message',e=>{
+      const d=e.data||{};
+      if(d.type==='love_ping'||d.type==='love_pending')showLove(d.sender||'',d.message||'Я люблю тебя! ❤️',d.id||'');
+    });
+    navigator.serviceWorker.addEventListener('controllerchange',()=>setTimeout(()=>requestPendingLove(),80));
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestPendingLove()});
+    window.addEventListener('pageshow',()=>requestPendingLove());
+    setTimeout(()=>requestPendingLove(true),120);
+  }
   window.addEventListener('hashchange',readHash);
   readHash();
   window.__showLovePopup=showLove;
   window.__lovePopupV1=true;
+  window.__lovePopupV2=true;
   import('./v2-social-bridge.js?v=1').catch(()=>{});
 }
