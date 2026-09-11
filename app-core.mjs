@@ -113,6 +113,7 @@ if(typeof window!=='undefined'){
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
+  await import('./design-paste-images.js?v=1');
   await import('./social-upgrades.js?v=2');
   await import('./settings-gear-final.js?v=3');
   await import('./push-recovery.js?v=1');
