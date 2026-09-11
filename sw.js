@@ -37,8 +37,12 @@ async function sendPendingLove(client){
   if(!client?.postMessage)return false;
   const queue=await readLoveQueue(),item=queue[0];
   if(!item)return false;
-  client.postMessage({type:'love_pending',...item});
+  client.postMessage({type:'love_ping',pending:true,...item});
   return true;
+}
+function loveUrl(item){
+  const payload=encodeURIComponent(JSON.stringify({id:item?.id||'',sender:item?.sender||'',message:item?.message||'Я люблю тебя! ❤️'}));
+  return new URL('./#love='+payload,APP_SCOPE).href;
 }
 
 self.addEventListener('install',()=>self.skipWaiting());
@@ -85,12 +89,14 @@ self.addEventListener('message',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   const d=event.notification.data||{};
-  let url=d.url||APP_SCOPE;
-  if(d.kind==='love'){
-    const payload=encodeURIComponent(JSON.stringify({id:d.loveId||'',sender:d.sender||'',message:d.message||'Я люблю тебя! ❤️'}));
-    url=new URL('./#love='+payload,APP_SCOPE).href;
-  }
   event.waitUntil((async()=>{
+    let url=d.url||APP_SCOPE;
+    if(d.kind==='love'){
+      url=loveUrl({id:d.loveId||'',sender:d.sender||'',message:d.message||'Я люблю тебя! ❤️'});
+    }else{
+      const pending=(await readLoveQueue())[0];
+      if(pending)url=loveUrl(pending);
+    }
     const list=await clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of list){
       if(new URL(client.url).origin===new URL(url).origin){
