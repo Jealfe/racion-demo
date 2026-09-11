@@ -121,6 +121,7 @@ if(typeof window!=='undefined'){
   await import('./food-options-expanded.js?v=1');
   await import('./interaction-fixes.js?v=2');
   await import('./couple-upgrades-v2.js?v=1');
+  await import('./moment-stability-v2.js?v=1');
   await import('./love-popup.js?v=1');
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
