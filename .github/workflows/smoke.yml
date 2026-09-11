@@ -27,6 +27,7 @@ jobs:
           node --check settings-gear-final.js
           node --check food-options-expanded.js
           node --check couple-upgrades-v2.js
+          node --check love-popup.js
           node --check sw.js
       - name: Run smoke tests
         run: node tests/smoke.mjs
