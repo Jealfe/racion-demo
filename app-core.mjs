@@ -118,6 +118,7 @@ if(typeof window!=='undefined'){
   await import('./home-layout.js');
   await import('./home-cards-redesign.js?v=8');
   await import('./wishlist-artwork-v2.js?v=1');
+  await import('./food-options-expanded.js?v=1');
   await import('./interaction-fixes.js?v=2');
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
