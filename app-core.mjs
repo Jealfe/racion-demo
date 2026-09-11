@@ -1,6 +1,37 @@
 const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
 const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
 
+if(typeof window!=='undefined'&&!window.__bootScreenV1){
+  const style=document.createElement('style');
+  style.id='boot-screen-styles';
+  style.textContent=`
+    #appBootScreen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#f6f3ef;opacity:1;transition:opacity .24s ease;pointer-events:auto}
+    #appBootScreen.boot-leave{opacity:0;pointer-events:none}
+    #appBootScreen .boot-inner{display:grid;place-items:center;gap:11px;transform:translateY(-3vh);color:#7b5b68;text-align:center}
+    #appBootScreen .boot-heart{width:58px;height:58px;border-radius:20px;display:grid;place-items:center;font-size:28px;background:linear-gradient(145deg,#fff,#f4e7e5);box-shadow:0 10px 30px rgba(94,67,76,.10);animation:bootPulse 1.25s ease-in-out infinite}
+    #appBootScreen .boot-title{font-size:15px;font-weight:800;letter-spacing:-.02em;color:#5f5157}
+    #appBootScreen .boot-sub{font-size:9px;color:#9f9297;letter-spacing:.03em}
+    @keyframes bootPulse{0%,100%{transform:scale(.96);box-shadow:0 8px 24px rgba(94,67,76,.08)}50%{transform:scale(1.04);box-shadow:0 12px 34px rgba(94,67,76,.15)}}
+    @media(prefers-reduced-motion:reduce){#appBootScreen .boot-heart{animation:none}#appBootScreen{transition:none}}
+  `;
+  document.head.appendChild(style);
+  const boot=document.createElement('div');
+  boot.id='appBootScreen';
+  boot.setAttribute('role','status');
+  boot.setAttribute('aria-live','polite');
+  boot.innerHTML='<div class="boot-inner"><div class="boot-heart">❤️</div><div class="boot-title">Мы вдвоём</div><div class="boot-sub">загружаем наше пространство</div></div>';
+  document.body.appendChild(boot);
+  let finished=false;
+  window.__finishBoot=()=>{
+    if(finished)return;
+    finished=true;
+    boot.classList.add('boot-leave');
+    setTimeout(()=>{boot.remove();style.remove()},280);
+  };
+  setTimeout(()=>window.__finishBoot?.(),8000);
+  window.__bootScreenV1=true;
+}
+
 if(typeof window!=='undefined' && !window.__familyTokenGuardPatched){
   const nativeRemove=Storage.prototype.removeItem;
   Storage.prototype.removeItem=function(key){
@@ -87,6 +118,7 @@ if(typeof window!=='undefined'){
   await import('./home-cards-redesign.js?v=8');
   await import('./wishlist-artwork-v2.js?v=1');
   await import('./interaction-fixes.js?v=2');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
