@@ -29,14 +29,24 @@ test('главная использует новый компактный пор
 
 test('фото занимает почти половину большой карточки, а текст Хотелок остаётся слева',async({page})=>{
   const wishlist=page.locator('#home .menu [data-open="wishlist"]');
+  const photoEl=wishlist.locator('.feature-photo');
+  const copyEl=wishlist.locator('.feature-copy');
+  await expect(wishlist).toBeVisible();
+  await expect(photoEl).toBeVisible();
+  await expect(copyEl).toBeVisible();
+  await page.waitForFunction(()=>{
+    const card=document.querySelector('#home .menu [data-open="wishlist"]');
+    const photo=card?.querySelector('.feature-photo');
+    return Boolean(card&&photo&&card.getBoundingClientRect().width>0&&photo.getBoundingClientRect().width>0);
+  });
   const card=await wishlist.boundingBox();
-  const photo=await wishlist.locator('.feature-photo').boundingBox();
-  const copy=await wishlist.locator('.feature-copy').boundingBox();
+  const photo=await photoEl.boundingBox();
+  const copy=await copyEl.boundingBox();
   expect(card&&photo&&photo.width/card.width>=0.43).toBeTruthy();
   expect(card&&photo&&photo.width/card.width<=0.49).toBeTruthy();
   expect(card&&copy&&copy.x+copy.width<card.x+card.width*0.72).toBeTruthy();
-  await expect(wishlist.locator('.feature-copy strong')).toHaveText('Хотелки');
-  await expect(wishlist.locator('.feature-copy small')).toHaveText('Всё, что хочется');
+  await expect(copyEl.locator('strong')).toHaveText('Хотелки');
+  await expect(copyEl.locator('small')).toHaveText('Всё, что хочется');
 });
 
 test('кнопка настроек показывает белые ползунки',async({page})=>{
