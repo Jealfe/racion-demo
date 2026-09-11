@@ -48,4 +48,5 @@ if(typeof document!=='undefined'&&!window.__lovePopupV1){
   readHash();
   window.__showLovePopup=showLove;
   window.__lovePopupV1=true;
+  import('./v2-social-bridge.js?v=1').catch(()=>{});
 }
