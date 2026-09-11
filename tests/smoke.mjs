@@ -35,8 +35,12 @@ test('исходная главная больше не содержит ста�
 test('облачная синхронизация перерисовывает только изменившиеся разделы',()=>{
   const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
   assert.match(js,/function sameData\(a,b\)/);
-  assert.match(js,/if\(!sameData\(current,v\)\)/);
-  assert.match(js,/changedKeys\.push\(k\)/);
+  assert.match(js,/function stableMediaUrl\(value=''/);
+  assert.match(js,/function comparableCloudData\(key,value\)/);
+  assert.match(js,/exactChanged=!sameData\(current,v\)/);
+  assert.match(js,/semanticChanged=!sameData\(comparableCloudData\(k,current\),comparableCloudData\(k,v\)\)/);
+  assert.match(js,/if\(exactChanged\)localStore\.set\(k,v\)/);
+  assert.match(js,/if\(semanticChanged\)changedKeys\.push\(k\)/);
   assert.match(js,/changedKeys\.forEach\(renderCloudKey\)/);
   assert.match(js,/if\(unreadChanged\)renderIndicators\(\)/);
 });
