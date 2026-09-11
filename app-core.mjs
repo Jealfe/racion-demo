@@ -113,16 +113,17 @@ if(typeof window!=='undefined'){
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
-  await import('./social-upgrades.js');
-  await import('./settings-gear-final.js?v=2');
+  await import('./social-upgrades.js?v=2');
+  await import('./settings-gear-final.js?v=3');
+  await import('./push-recovery.js?v=1');
   await import('./home-layout.js');
   await import('./home-cards-redesign.js?v=8');
   await import('./wishlist-artwork-v2.js?v=1');
   await import('./food-options-expanded.js?v=1');
   await import('./interaction-fixes.js?v=2');
-  await import('./couple-upgrades-v2.js?v=1');
+  await import('./couple-upgrades-v2.js?v=2');
   await import('./moment-stability-v2.js?v=1');
-  await import('./love-popup.js?v=1');
+  await import('./love-popup.js?v=3');
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
 
