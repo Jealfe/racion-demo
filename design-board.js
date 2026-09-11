@@ -15,6 +15,8 @@ const token=()=>localStorage.getItem('us_family_token')||'';
 const localGet=()=>{try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return []}};
 const localSet=v=>localStorage.setItem(STORAGE_KEY,JSON.stringify(v));
 const sameData=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const stableDesignItem=x=>({id:x.id,room:x.room,source:x.source,comment:x.comment,image_path:x.image_path||'',author:x.author,createdAt:x.createdAt});
+const sameDesignItems=(a,b)=>sameData((a||[]).map(stableDesignItem),(b||[]).map(stableDesignItem));
 function notify(text){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(window.__designToast);window.__designToast=setTimeout(()=>t.classList.remove('show'),1900)}
 async function api(action,payload={}){const tk=token();if(!tk)throw new Error('NO_TOKEN');const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json','x-family-token':tk},body:JSON.stringify({action,...payload})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'CLOUD_ERROR');return d}
 function isCloudId(id){return typeof id==='string'&&/^[0-9a-f-]{30,}$/i.test(id)}
@@ -54,7 +56,7 @@ async function removeIdea(id){try{if(token()&&isCloudId(id)){await api('delete',
 async function markRead(){if(!token())return;try{const d=await api('mark_read',{section:'designs'});writeUnread(d.unread||{})}catch(e){console.error(e)}}
 function writeUnread(u){try{const current=JSON.parse(localStorage.getItem('us_unread')||'{}');if(!sameData(current,u))localStorage.setItem('us_unread',JSON.stringify(u))}catch{try{localStorage.setItem('us_unread',JSON.stringify(u))}catch{}}renderBadge(u.designs||0)}
 function renderBadge(n){const tile=$('[data-open="designs"]');if(!tile)return;let b=tile.querySelector('.design-notify');if(!b){b=document.createElement('span');b.className='notify-badge design-notify';tile.appendChild(b)}n=Math.max(0,Number(n)||0);b.textContent=n>9?'9+':String(n);b.classList.toggle('show',n>0)}
-async function sync(force=false){if(syncing||!token())return;syncing=true;try{const d=await api('sync');const nextItems=(d.items||[]).filter(x=>x.kind==='designs').map(x=>({id:x.id,room:x.data?.room||'general',source:x.data?.source||'',comment:x.text||'',image_url:x.image_url||'',author:x.author_name||'',createdAt:x.created_at||''}));const itemsChanged=!sameData(cloudItems,nextItems);if(itemsChanged)cloudItems=nextItems;writeUnread(d.unread||{});if(itemsChanged)render()}catch(e){if(force)notify('Общая доска временно недоступна');console.error(e)}finally{syncing=false}}
+async function sync(force=false){if(syncing||!token())return;syncing=true;try{const d=await api('sync');const nextItems=(d.items||[]).filter(x=>x.kind==='designs').map(x=>({id:x.id,room:x.data?.room||'general',source:x.data?.source||'',comment:x.text||'',image_path:x.image_path||'',image_url:x.image_url||'',author:x.author_name||'',createdAt:x.created_at||''}));const itemsChanged=!sameDesignItems(cloudItems,nextItems);cloudItems=nextItems;writeUnread(d.unread||{});if(itemsChanged)render()}catch(e){if(force)notify('Общая доска временно недоступна');console.error(e)}finally{syncing=false}}
 
 function events(){
   $('#designPhoto').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const u=URL.createObjectURL(f);$('#designPreview').src=u;$('#designPhotoPick').classList.add('has-photo');$('#designPreview').onload=()=>URL.revokeObjectURL(u)});
