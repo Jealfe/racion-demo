@@ -65,6 +65,8 @@ function cloudRowsToLocal(items){
   return out;
 }
 function sameData(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function stableMediaUrl(value=''){const s=String(value||'');if(!s||s.startsWith('data:'))return s;try{const u=new URL(s);return u.origin+u.pathname}catch{return s.split('?')[0]}}
+function comparableCloudData(key,value){if(key!=='moments')return value;return (Array.isArray(value)?value:[]).map(x=>({...x,img:stableMediaUrl(x.img)}))}
 function renderCloudKey(key){({thanks:renderThanks,wishes:renderWishes,ideas:renderIdeas,likes:renderLikes,moments:renderMoments,movies:renderMovies}[key]?.())}
 async function syncCloud(){
   if(!cloudReady||cloudBusy)return;
@@ -80,11 +82,9 @@ async function syncCloud(){
     const mapped=cloudRowsToLocal(d.items),changedKeys=[];
     cloudApplying=true;
     for(const [k,v] of Object.entries(mapped)){
-      const current=localStore.get(k,[]);
-      if(!sameData(current,v)){
-        localStore.set(k,v);
-        changedKeys.push(k);
-      }
+      const current=localStore.get(k,[]),exactChanged=!sameData(current,v),semanticChanged=!sameData(comparableCloudData(k,current),comparableCloudData(k,v));
+      if(exactChanged)localStore.set(k,v);
+      if(semanticChanged)changedKeys.push(k);
     }
     const nextUnread=d.unread||{},currentUnread=localStore.get('unread',{}),unreadChanged=!sameData(currentUnread,nextUnread);
     if(unreadChanged)localStore.set('unread',nextUnread);
