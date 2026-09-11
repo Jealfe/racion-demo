@@ -44,6 +44,10 @@ function loveUrl(item){
   const payload=encodeURIComponent(JSON.stringify({id:item?.id||'',sender:item?.sender||'',message:item?.message||'Я люблю тебя! ❤️'}));
   return new URL('./#love='+payload,APP_SCOPE).href;
 }
+function isLovePush(data,title,body){
+  const text=`${title||''} ${body||''}`;
+  return data.kind==='love'||data.action==='love_ping'||(/❤️/.test(text)&&/(?:люблю\s+тебя|тебя\s+люблю)/i.test(text));
+}
 
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
@@ -52,7 +56,7 @@ self.addEventListener('push',event=>{
   try{data=event.data?event.data.json():{}}catch{data={body:event.data?.text()||''}}
   const title=data.title||'Мы вдвоём ❤️';
   const body=data.body||'Есть новое в вашем общем месте.';
-  const isLove=data.kind==='love'||(data.kind==='home'&&/❤️/.test(title)&&/люблю тебя/i.test(body));
+  const isLove=isLovePush(data,title,body);
   const loveItem=isLove?{id:makeLoveId(data),sender:title,message:body,receivedAt:Date.now()}:null;
   const options={
     body,
@@ -92,7 +96,9 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     let url=d.url||APP_SCOPE;
     if(d.kind==='love'){
-      url=loveUrl({id:d.loveId||'',sender:d.sender||'',message:d.message||'Я люблю тебя! ❤️'});
+      const item={id:d.loveId||makeLoveId(d),sender:d.sender||'',message:d.message||'Я люблю тебя! ❤️',receivedAt:Date.now()};
+      await rememberLove(item);
+      url=loveUrl(item);
     }else{
       const pending=(await readLoveQueue())[0];
       if(pending)url=loveUrl(pending);
