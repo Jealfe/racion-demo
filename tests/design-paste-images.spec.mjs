@@ -58,8 +58,6 @@ test('Дом и дизайны принимает скопированное и�
     const dt=new DataTransfer();dt.items.add(file);
     document.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));
   });
-  await expect(page.locator('#designPhoto')).toHaveJSProperty('files',expect.anything());
-  const count=await page.locator('#designPhoto').evaluate(el=>el.files?.length||0);
-  expect(count).toBe(1);
+  await expect.poll(()=>page.locator('#designPhoto').evaluate(el=>el.files?.length||0)).toBe(1);
   await expect(page.locator('#designPhotoPick')).toHaveClass(/has-photo/);
 });
