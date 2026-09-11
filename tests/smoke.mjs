@@ -62,4 +62,20 @@ test('подключены социальные улучшения и PWA без
   assert.match(sw,/showNotification/);assert.equal(manifest.name,'Мы вдвоём');assert.equal(manifest.display,'standalone');
 });
 
+test('непросмотренное «Я люблю тебя» переживает открытие через другое уведомление',()=>{
+  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
+  const popup=readFileSync(new URL('../love-popup.js',import.meta.url),'utf8');
+  assert.match(sw,/LOVE_PENDING_CACHE/);
+  assert.match(sw,/rememberLove\(loveItem\)/);
+  assert.match(sw,/love_pending_request/);
+  assert.match(sw,/love_seen/);
+  assert.match(sw,/sendPendingLove\(event\.source\)/);
+  assert.match(popup,/requestPendingLove/);
+  assert.match(popup,/type:'love_pending_request'/);
+  assert.match(popup,/type:'love_seen'/);
+  assert.match(popup,/visibilitychange/);
+  assert.match(popup,/pageshow/);
+  assert.match(popup,/love_pending/);
+});
+
 console.log(`\n${passed} smoke-тестов пройдено.`);
