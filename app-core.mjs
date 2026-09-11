@@ -120,6 +120,7 @@ if(typeof window!=='undefined'){
   await import('./wishlist-artwork-v2.js?v=1');
   await import('./food-options-expanded.js?v=1');
   await import('./interaction-fixes.js?v=2');
+  await import('./couple-upgrades.js?v=1');
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
 
