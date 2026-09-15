@@ -99,7 +99,7 @@ self.addEventListener('notificationclick',event=>{
       const item={id:d.loveId||makeLoveId(d),sender:d.sender||'',message:d.message||'Я люблю тебя! ❤️',receivedAt:Date.now()};
       await rememberLove(item);
       url=loveUrl(item);
-    }else{
+    }else if(d.kind!=='reminders'){
       const pending=(await readLoveQueue())[0];
       if(pending)url=loveUrl(pending);
     }
