@@ -32,6 +32,7 @@ jobs:
           node --check moment-stability-v2.js
           node --check love-popup.js
           node --check v2-social-bridge.js
+          node --check reminders.js
           node --check sw.js
       - name: Run smoke tests
         run: node tests/smoke.mjs
