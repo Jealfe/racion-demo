@@ -31,3 +31,11 @@ test('love popup по центру и повторно поднимается п
   expect(sw).toMatch(/await rememberLove\(item\)/);
   expect(sw).toMatch(/url=loveUrl\(item\)/);
 });
+
+test('на ответ И я тебя кнопка повторного ответа скрывается',()=>{
+  const popup=read('love-popup.js');
+  expect(popup).toMatch(/function isLoveReply\(message=''/);
+  expect(popup).toMatch(/normalized==='и я тебя'\|\|normalized==='и я тебя люблю'/);
+  expect(popup).toMatch(/actions\.style\.display=isReply\?'none':'flex'/);
+  expect(popup).toMatch(/message:'И я тебя люблю! ❤️'/);
+});
