@@ -124,7 +124,7 @@ if(typeof window!=='undefined'){
   await import('./interaction-fixes.js?v=2');
   await import('./couple-upgrades-v2.js?v=2');
   await import('./moment-stability-v2.js?v=1');
-  await import('./love-popup.js?v=3');
+  await import('./love-popup.js?v=4');
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
 }
 
