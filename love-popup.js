@@ -97,4 +97,5 @@ if(typeof document!=='undefined'&&!window.__lovePopupV3){
   window.__lovePopupV2=true;
   window.__lovePopupV3=true;
   import('./v2-social-bridge.js?v=1').catch(()=>{});
+  import('./reminders.js?v=1').catch(()=>{});
 }
