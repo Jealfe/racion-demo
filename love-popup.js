@@ -1,4 +1,4 @@
-if(typeof document!=='undefined'&&!window.__lovePopupV3){
+if(typeof document!=='undefined'&&!window.__lovePopupV4){
   const API='https://jlejyppniaifdavllwid.supabase.co/functions/v1/family-api';
   const token=()=>localStorage.getItem('us_family_token')||'';
   async function api(action,payload={}){
@@ -40,12 +40,22 @@ if(typeof document!=='undefined'&&!window.__lovePopupV3){
   }
   function requestPendingLove(forceUpdate=false){postToServiceWorker({type:'love_pending_request'},forceUpdate).catch(()=>{})}
   function acknowledgeLove(id){if(id)postToServiceWorker({type:'love_seen',id}).catch(()=>{})}
+  function isLoveReply(message=''){
+    const normalized=String(message||'').toLowerCase().replace(/❤️/g,'').replace(/[!?.…]/g,'').replace(/\s+/g,' ').trim();
+    return normalized==='и я тебя'||normalized==='и я тебя люблю';
+  }
 
   function showLove(sender='',message='Я люблю тебя! ❤️',id=''){
     const s=String(sender||'').replace(/\s*❤️\s*$/,'').trim();
+    const text=String(message||'Я люблю тебя! ❤️');
     currentLoveId=String(id||'');
     document.getElementById('lovePopupSender').textContent=s?`${s} отправил(а) тебе ❤️`:'Тебе отправили ❤️';
-    document.getElementById('lovePopupText').textContent=String(message||'Я люблю тебя! ❤️');
+    document.getElementById('lovePopupText').textContent=text;
+    const reply=document.getElementById('lovePopupReply');
+    const actions=reply?.closest('.love-pop-actions');
+    const isReply=isLoveReply(text);
+    if(actions)actions.style.display=isReply?'none':'flex';
+    if(reply){reply.disabled=false;reply.textContent='❤️ И я тебя'}
     root.classList.add('show');
     clearTimeout(hideTimer);
     hideTimer=setTimeout(()=>root.classList.remove('show'),12000);
@@ -96,6 +106,7 @@ if(typeof document!=='undefined'&&!window.__lovePopupV3){
   window.__lovePopupV1=true;
   window.__lovePopupV2=true;
   window.__lovePopupV3=true;
+  window.__lovePopupV4=true;
   import('./v2-social-bridge.js?v=1').catch(()=>{});
   import('./reminders.js?v=1').catch(()=>{});
 }
