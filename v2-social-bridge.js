@@ -31,6 +31,16 @@ if(typeof document!=='undefined'&&!window.__v2SocialBridge){
       if(data)paint(data);
     }
   }
+  function keepReminderOrder(){
+    const menu=document.querySelector('#home .menu.home-menu-redesign');
+    if(!menu)return;
+    const reminder=menu.querySelector(':scope > [data-open="reminders"]');
+    const surprise=menu.querySelector(':scope > [data-open="surprise"]');
+    if(reminder&&surprise&&reminder.nextElementSibling!==surprise)surprise.before(reminder);
+  }
+  const orderObserver=new MutationObserver(keepReminderOrder);
+  orderObserver.observe(document.body,{childList:true,subtree:true});
+  [0,80,250,700].forEach(ms=>setTimeout(keepReminderOrder,ms));
   document.addEventListener('click',e=>{
     const t=e.target.closest?.('.cu2-card [data-react],.cu2-mbody [data-react],.cu2-card [data-comments],.cu2-mbody [data-comments]');
     if(!t)return;
