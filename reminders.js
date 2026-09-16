@@ -4,21 +4,34 @@ if(typeof document!=='undefined'&&!window.__familyRemindersV1){
   const token=()=>localStorage.getItem('us_family_token')||'';
   const $=s=>document.querySelector(s);
   const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const state={me:'',people:[],items:[],sig:'',target:'self',editId:'',busy:false};
+  const state={me:'',people:[],items:[],sig:'',target:'self',editId:'',busy:false,refreshing:false,refreshQueued:false};
 
   async function api(action,payload={}){
     const tk=token();
     if(!tk)throw new Error('NO_TOKEN');
-    const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json','apikey':PUBLISHABLE_KEY,'x-family-token':tk},body:JSON.stringify({action,...payload})});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(data.error||'REMINDER_ERROR');
-    return data;
+    const controller=new AbortController();
+    const timeoutMs=action==='list'?8000:20000;
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json','apikey':PUBLISHABLE_KEY,'x-family-token':tk},body:JSON.stringify({action,...payload}),signal:controller.signal});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(data.error||'REMINDER_ERROR');
+      return data;
+    }catch(e){
+      if(e?.name==='AbortError')throw new Error('TIMEOUT');
+      throw e;
+    }finally{clearTimeout(timer)}
   }
   function toast(msg){
     const t=$('#toast');
     if(!t)return;
     t.textContent=msg;t.classList.add('show');clearTimeout(window.__reminderToast);
     window.__reminderToast=setTimeout(()=>t.classList.remove('show'),2100);
+  }
+  function friendlyError(e,fallback='Не получилось'){
+    if(e?.message==='NO_TOKEN')return 'Нужна общая синхронизация';
+    if(e?.message==='TIMEOUT')return 'Сервер отвечает дольше обычного. Попробуй ещё раз.';
+    return e?.message||fallback;
   }
   function localParts(date){
     const d=new Date(date),pad=n=>String(n).padStart(2,'0');
@@ -147,24 +160,29 @@ if(typeof document!=='undefined'&&!window.__familyRemindersV1){
     const when=new Date(`${date}T${time}:00`);
     if(!Number.isFinite(when.getTime()))return toast('Не получилось прочитать дату');
     if(when.getTime()<Date.now()-60000)return toast('Это время уже прошло');
-    state.busy=true;$('#remSave').disabled=true;
+    const wasEditing=Boolean(state.editId),saveButton=$('#remSave');
+    state.busy=true;saveButton.disabled=true;saveButton.textContent='Сохраняю…';
     try{
       if(state.editId)await api('update',{id:state.editId,text,target:state.target,scheduled_for:when.toISOString()});
       else await api('create',{text,target:state.target,scheduled_for:when.toISOString()});
-      toast(state.editId?'Напоминание обновлено':'Напоминание добавлено ⏰');resetForm();await refresh(true);
-    }catch(e){toast(e.message==='NO_TOKEN'?'Нужна общая синхронизация':e.message||'Не удалось сохранить')}
-    finally{state.busy=false;$('#remSave').disabled=false}
+      toast(wasEditing?'Напоминание обновлено':'Напоминание добавлено ⏰');resetForm();
+      refresh(true);
+    }catch(e){toast(friendlyError(e,'Не удалось сохранить'));refresh(true)}
+    finally{
+      state.busy=false;saveButton.disabled=false;
+      saveButton.textContent=state.editId?'Сохранить изменения':'Добавить напоминание';
+    }
   }
   async function handleAction(action,id){
     const item=state.items.find(x=>String(x.id)===String(id));if(!item)return;
     try{
-      if(action==='done'){await api('update',{id:item.id,done:!item.done});await refresh(true);return}
+      if(action==='done'){await api('update',{id:item.id,done:!item.done});refresh(true);return}
       if(action==='edit'){editReminder(item);return}
       if(action==='delete'){
         if(!confirm('Удалить это напоминание?'))return;
-        await api('delete',{id:item.id});toast('Напоминание удалено');if(state.editId===item.id)resetForm();await refresh(true);
+        await api('delete',{id:item.id});toast('Напоминание удалено');if(state.editId===item.id)resetForm();refresh(true);
       }
-    }catch(e){toast(e.message||'Не получилось')}
+    }catch(e){toast(friendlyError(e));refresh(true)}
   }
 
   function itemHtml(item){
@@ -192,13 +210,20 @@ if(typeof document!=='undefined'&&!window.__familyRemindersV1){
     if(!token()){
       if($('#remOffline'))$('#remOffline').style.display='block';if($('#remBody'))$('#remBody').style.display='none';state.items=[];state.sig='';updateBadge();return;
     }
+    if(state.refreshing){if(force)state.refreshQueued=true;return}
+    state.refreshing=true;
     try{
       const d=await api('list');state.me=String(d.author||'');state.people=Array.isArray(d.people)?d.people:[];
       if($('#remOffline'))$('#remOffline').style.display='none';if($('#remBody'))$('#remBody').style.display='block';
       const items=Array.isArray(d.items)?d.items:[],sig=signature(items);
       if(force||sig!==state.sig){state.items=items;state.sig=sig;render()}else{setTarget(state.target);updateBadge()}
       updatePushNote();
-    }catch(e){if($('#remOffline')){$('#remOffline').style.display='block';$('#remOffline').textContent='Не удалось загрузить напоминания. Проверь подключение и попробуй ещё раз.'}}
+    }catch(e){
+      if($('#remOffline')){$('#remOffline').style.display='block';$('#remOffline').textContent=e?.message==='TIMEOUT'?'Сервер отвечает дольше обычного. Список обновится автоматически.':'Не удалось загрузить напоминания. Проверь подключение — список обновится автоматически.'}
+    }finally{
+      state.refreshing=false;
+      if(state.refreshQueued){state.refreshQueued=false;setTimeout(()=>refresh(true),0)}
+    }
   }
 
   function openScreen(){
