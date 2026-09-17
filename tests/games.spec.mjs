@@ -112,8 +112,9 @@ test('рисунок отправляет полный фрагмент и от�
   await page.locator('#home [data-open="games"]').click();
   const canvas=page.locator('#gameCanvas');
   await expect(canvas).toBeVisible();
-  const box=await canvas.boundingBox();
-  expect(box).toBeTruthy();
+  const box=await canvas.evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}});
+  expect(box.width).toBeGreaterThan(0);
+  expect(box.height).toBeGreaterThan(0);
   await page.mouse.move(box.x+40,box.y+40);await page.mouse.down();await page.mouse.move(box.x+180,box.y+100,{steps:4});await page.mouse.up();
   await expect(page.locator('#gameSubmitDrawing')).toBeEnabled();
   await page.locator('#gameSubmitDrawing').click();
