@@ -3,7 +3,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   const API_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
   const token=()=>localStorage.getItem('us_family_token')||'';
   const $=s=>document.querySelector(s);
-  const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   let selectedMode='words',state={author:'',active:null,history:[],latest_finished:null},lastResult=null,dismissedResultId='',busy=false,pollTimer=0,canvasState=null;
 
   async function api(action,payload={}){
@@ -17,7 +17,21 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     const t=$('#toast');if(!t)return;
     t.textContent=message;t.classList.add('show');clearTimeout(window.__gamesToast);window.__gamesToast=setTimeout(()=>t.classList.remove('show'),2200);
   }
-  function setBusy(value){busy=Boolean(value);document.querySelectorAll('#games button,#games textarea').forEach(el=>{if(el.dataset.keepEnabled!=='1')el.disabled=busy})}
+  function setBusy(value){
+    const next=Boolean(value);if(next===busy)return;busy=next;
+    document.querySelectorAll('#games button,#games textarea').forEach(el=>{
+      if(el.dataset.keepEnabled==='1')return;
+      if(busy){
+        if(!Object.prototype.hasOwnProperty.call(el.dataset,'gamesDisabledBefore'))el.dataset.gamesDisabledBefore=el.disabled?'1':'0';
+        el.disabled=true;
+        return;
+      }
+      if(Object.prototype.hasOwnProperty.call(el.dataset,'gamesDisabledBefore')){
+        el.disabled=el.dataset.gamesDisabledBefore==='1';
+        delete el.dataset.gamesDisabledBefore;
+      }
+    });
+  }
   function modeTitle(mode){return mode==='drawing'?'Рисунок':'Слова'}
   function modeIcon(mode){return mode==='drawing'?'🎨':'📝'}
   function prettyDate(v){const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):''}
