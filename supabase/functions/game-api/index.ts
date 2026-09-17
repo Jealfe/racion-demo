@@ -167,6 +167,25 @@ Deno.serve(async(req)=>{
       return json({ok:true,...await statePayload(admin,device)})
     }
 
+    if(action==='cancel'){
+      const sessionId=String(body.session_id||'')
+      if(!sessionId)return json({error:'Некорректная игра'},400)
+      const {data:session,error:sErr}=await admin.from('game_sessions')
+        .select('id,status,starter_author,partner_author').eq('id',sessionId).eq('status','active').maybeSingle()
+      if(sErr)throw sErr
+      if(!session)return json({error:'Активная игра уже завершена'},409)
+      if(![session.starter_author,session.partner_author].includes(device.author_name))return json({error:'Нет доступа к этой игре'},403)
+      const {data:turns,error:tErr}=await admin.from('game_turns').select('image_path').eq('game_id',sessionId)
+      if(tErr)throw tErr
+      const {error:deleteErr}=await admin.from('game_sessions').delete().eq('id',sessionId).eq('status','active')
+      if(deleteErr)throw deleteErr
+      const paths=(turns||[]).map((x:any)=>x.image_path).filter(Boolean)
+      if(paths.length)await admin.storage.from('family-games').remove(paths).catch(()=>{})
+      const partner=session.starter_author===device.author_name?session.partner_author:session.starter_author
+      await sendPushToAuthor(admin,partner,pushPayload('Чепуха завершена',`${device.author_name} завершил(а) текущую игру`,sessionId))
+      return json({ok:true,...await statePayload(admin,device)})
+    }
+
     if(action==='submit'){
       const sessionId=String(body.session_id||'')
       const step=Number(body.step)

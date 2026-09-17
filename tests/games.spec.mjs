@@ -112,8 +112,9 @@ test('рисунок отправляет полный фрагмент и от�
   await page.locator('#home [data-open="games"]').click();
   const canvas=page.locator('#gameCanvas');
   await expect(canvas).toBeVisible();
-  const box=await canvas.boundingBox();
-  expect(box).toBeTruthy();
+  await expect.poll(async()=>canvas.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
+  const box=await canvas.evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}});
+  expect(box.height).toBeGreaterThan(0);
   await page.mouse.move(box.x+40,box.y+40);await page.mouse.down();await page.mouse.move(box.x+180,box.y+100,{steps:4});await page.mouse.up();
   await expect(page.locator('#gameSubmitDrawing')).toBeEnabled();
   await page.locator('#gameSubmitDrawing').click();
@@ -132,4 +133,41 @@ test('на следующем рисовальном ходе видна тол�
   await expect(page.locator('.game-edge-label')).toContainText('только край');
   await expect(page.locator('.game-drawing-result')).toHaveCount(0);
   await expect(page.locator('#gameCanvas')).toBeVisible();
+});
+
+test('набраный словесный ответ не сбрасывается во время фонового polling',async({page})=>{
+  const current=state(active('words',0,'Муж'));
+  let stateCalls=0;
+  await prepare(page,async route=>{
+    const body=route.request().postDataJSON();
+    if(body.action==='state')stateCalls++;
+    return route.fulfill({json:current});
+  });
+  await page.locator('#home [data-open="games"]').click();
+  const answer=page.locator('#gameAnswer');
+  await answer.fill('Длинный ответ, который я ещё не закончил');
+  await page.waitForTimeout(6500);
+  await expect(answer).toHaveValue('Длинный ответ, который я ещё не закончил');
+  expect(stateCalls).toBeGreaterThanOrEqual(2);
+});
+
+test('активную игру можно завершить с любого состояния и сразу начать новую',async({page})=>{
+  let current=state(active('words',1,'Жена'));
+  let cancelled='';
+  await prepare(page,async route=>{
+    const body=route.request().postDataJSON();
+    if(body.action==='cancel'){
+      cancelled=body.session_id;
+      current=state();
+      return route.fulfill({json:current});
+    }
+    return route.fulfill({json:current});
+  });
+  await page.locator('#home [data-open="games"]').click();
+  await expect(page.locator('#games')).toContainText('Ждём следующий ход');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#gameStop').click();
+  expect(cancelled).toBe('11111111-1111-4111-8111-111111111111');
+  await expect(page.locator('#gameStart')).toBeVisible();
+  await expect(page.locator('#games')).toContainText('Выберите игру');
 });
