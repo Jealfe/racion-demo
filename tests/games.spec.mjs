@@ -44,7 +44,8 @@ test('раздел Игры один, переключает Слова и Ри�
   await expect(page.locator('#games')).toContainText('Рисованная чепуха');
   await page.locator('#gameStart').click();
   await expect(page.locator('#gameCanvas')).toBeVisible();
-  await expect(page.locator('#games .game-mode')).toBeDisabled();
+  await expect(page.locator('#games .game-mode')).toHaveCount(2);
+  expect(await page.locator('#games .game-mode').evaluateAll(nodes=>nodes.every(node=>node.disabled))).toBe(true);
   await expect(page.locator('#gameStart')).toHaveCount(0);
 });
 
