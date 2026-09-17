@@ -97,7 +97,7 @@ test('последний словесный ход раскрывает всю �
   await expect(page.locator('#games')).toContainText('Все улетели домой');
 });
 
-test('рисунок отправляет полный фрагмент и отдельную узкую полоску, затем показывает ожидание',async({page})=>{
+test('рисунок показывает границу полоски для партнёра и отправляет только этот край отдельно',async({page})=>{
   let current=state(active('drawing',0,'Муж'));
   let drawingPayload=null;
   await prepare(page,async route=>{
@@ -112,9 +112,12 @@ test('рисунок отправляет полный фрагмент и от�
   await page.locator('#home [data-open="games"]').click();
   const canvas=page.locator('#gameCanvas');
   await expect(canvas).toBeVisible();
+  await expect(page.locator('.game-share-guide')).toContainText('ниже увидит партнёр');
   await expect.poll(async()=>canvas.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
   const box=await canvas.evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}});
   expect(box.height).toBeGreaterThan(0);
+  const guideBottom=await page.locator('.game-share-guide').evaluate(el=>parseFloat(getComputedStyle(el).bottom));
+  expect(guideBottom).toBeGreaterThan(0);
   await page.mouse.move(box.x+40,box.y+40);await page.mouse.down();await page.mouse.move(box.x+180,box.y+100,{steps:4});await page.mouse.up();
   await expect(page.locator('#gameSubmitDrawing')).toBeEnabled();
   await page.locator('#gameSubmitDrawing').click();
@@ -151,6 +154,18 @@ test('набраный словесный ответ не сбрасываетс
   expect(stateCalls).toBeGreaterThanOrEqual(2);
 });
 
+test('черновик ответа сохраняется при уходе на главную и возврате в ту же игру',async({page})=>{
+  const current=state(active('words',0,'Муж'));
+  await prepare(page,async route=>route.fulfill({json:current}));
+  await page.locator('#home [data-open="games"]').click();
+  const answer=page.locator('#gameAnswer');
+  await answer.fill('Я ещё не закончил этот ответ');
+  await page.locator('#gamesBack').click();
+  await expect(page.locator('#home')).toHaveClass(/active/);
+  await page.locator('#home [data-open="games"]').click();
+  await expect(page.locator('#gameAnswer')).toHaveValue('Я ещё не закончил этот ответ');
+});
+
 test('активную игру можно завершить с любого состояния и сразу начать новую',async({page})=>{
   let current=state(active('words',1,'Жена'));
   let cancelled='';
@@ -170,4 +185,24 @@ test('активную игру можно завершить с любого с
   expect(cancelled).toBe('11111111-1111-4111-8111-111111111111');
   await expect(page.locator('#gameStart')).toBeVisible();
   await expect(page.locator('#games')).toContainText('Выберите игру');
+});
+
+test('после отмены текущей партии старая завершённая игра не всплывает как новая',async({page})=>{
+  const oldFinished={id:'33333333-3333-4333-8333-333333333333',mode:'words',starter_author:'Муж',partner_author:'Жена',total_steps:6,created_at:'2026-09-16T10:00:00Z',finished_at:'2026-09-16T10:10:00Z'};
+  let current=state(active('words',1,'Жена'),{history:[oldFinished],latest_finished:oldFinished});
+  await prepare(page,async route=>{
+    const body=route.request().postDataJSON();
+    if(body.action==='cancel'){
+      current=state(null,{history:[oldFinished],latest_finished:oldFinished});
+      return route.fulfill({json:current});
+    }
+    if(body.action==='result')return route.fulfill({json:{ok:true,session:{...oldFinished,status:'finished'},turns:[]}});
+    return route.fulfill({json:current});
+  });
+  await page.locator('#home [data-open="games"]').click();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#gameStop').click();
+  await expect(page.locator('#gameStart')).toBeVisible();
+  await expect(page.locator('#gameHomeBadge')).not.toHaveClass(/show/);
+  await expect(page.locator('#home [data-open="games"] .mini-copy small')).toHaveText('Чепуха вдвоём');
 });
