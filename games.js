@@ -3,7 +3,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   const API_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
   const token=()=>localStorage.getItem('us_family_token')||'';
   const $=s=>document.querySelector(s);
-  const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt',"'":'&#39;','\"':'&quot;'}[c]));
   let selectedMode='words',state={author:'',active:null,history:[],latest_finished:null},lastResult=null,dismissedResultId='',busy=false,pollTimer=0,canvasState=null;
 
   async function api(action,payload={}){
@@ -36,6 +36,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   function modeIcon(mode){return mode==='drawing'?'🎨':'📝'}
   function prettyDate(v){const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):''}
   function partnerLabel(active){return active?.current_author||'партнёра'}
+  function stopButtonHTML(){return '<button class="game-soft game-dangerless" id="gameStop">Завершить игру</button>'}
 
   const style=document.createElement('style');
   style.id='games-v1-styles';
@@ -104,11 +105,11 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     return `<div class="game-card"><h3>Наши прошлые игры</h3><div class="game-history">${items.map(x=>`<button class="game-history-item" data-game-result="${esc(x.id)}"><span>${modeIcon(x.mode)}</span><span><b>${modeTitle(x.mode)}</b><small>${esc(prettyDate(x.finished_at||x.created_at))}</small></span><em>›</em></button>`).join('')}</div></div>`;
   }
   function myTurnHTML(active){
-    if(active.mode==='words')return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p><textarea class="game-answer" id="gameAnswer" maxlength="800" placeholder="Напиши что-нибудь неожиданное…"></textarea><button class="game-primary" id="gameSubmitWord">Отправить ответ</button><p class="game-sync-note">После отправки ответ спрячется до конца партии.</p></div>`;
-    return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p>${active.preview_data?`<div class="game-edge-wrap"><div class="game-edge-label">виден только край предыдущего рисунка</div><img class="game-edge-preview" src="${esc(active.preview_data)}" alt="Край предыдущего рисунка"></div>`:''}<div class="game-canvas-wrap"><canvas class="game-canvas" id="gameCanvas" width="900" height="360"></canvas></div><div class="game-tools"><button class="game-color active" data-game-color="#252329" style="background:#252329" aria-label="Чёрный"></button><button class="game-color" data-game-color="#d76773" style="background:#d76773" aria-label="Красный"></button><button class="game-color" data-game-color="#5678aa" style="background:#5678aa" aria-label="Синий"></button><button class="game-color" data-game-color="#65916a" style="background:#65916a" aria-label="Зелёный"></button><span class="game-tool-spacer"></span><button class="game-size active" data-game-size="7">тонко</button><button class="game-size" data-game-size="14">толще</button></div><div class="game-actions"><button class="game-soft" id="gameUndo">↶ Отменить</button><button class="game-soft game-dangerless" id="gameClear">Очистить</button></div><button class="game-primary" id="gameSubmitDrawing" disabled>Отправить рисунок</button><p class="game-sync-note">Следующий игрок увидит только нижнюю полоску этого фрагмента.</p></div>`;
+    if(active.mode==='words')return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p><textarea class="game-answer" id="gameAnswer" maxlength="800" placeholder="Напиши что-нибудь неожиданное…"></textarea><button class="game-primary" id="gameSubmitWord">Отправить ответ</button><p class="game-sync-note">После отправки ответ спрячется до конца партии.</p><div class="game-actions">${stopButtonHTML()}</div></div>`;
+    return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p>${active.preview_data?`<div class="game-edge-wrap"><div class="game-edge-label">виден только край предыдущего рисунка</div><img class="game-edge-preview" src="${esc(active.preview_data)}" alt="Край предыдущего рисунка"></div>`:''}<div class="game-canvas-wrap"><canvas class="game-canvas" id="gameCanvas" width="900" height="360"></canvas></div><div class="game-tools"><button class="game-color active" data-game-color="#252329" style="background:#252329" aria-label="Чёрный"></button><button class="game-color" data-game-color="#d76773" style="background:#d76773" aria-label="Красный"></button><button class="game-color" data-game-color="#5678aa" style="background:#5678aa" aria-label="Синий"></button><button class="game-color" data-game-color="#65916a" style="background:#65916a" aria-label="Зелёный"></button><span class="game-tool-spacer"></span><button class="game-size active" data-game-size="7">тонко</button><button class="game-size" data-game-size="14">толще</button></div><div class="game-actions"><button class="game-soft" id="gameUndo">↶ Отменить</button><button class="game-soft game-dangerless" id="gameClear">Очистить</button></div><button class="game-primary" id="gameSubmitDrawing" disabled>Отправить рисунок</button><p class="game-sync-note">Следующий игрок увидит только нижнюю полоску этого фрагмента.</p><div class="game-actions">${stopButtonHTML()}</div></div>`;
   }
   function waitingHTML(active){
-    return `<div class="game-card center"><div class="game-wait-orbit">⏳</div><div class="game-step-label">Ход ${esc(partnerLabel(active))}</div><h3>Ждём следующий ход</h3><p>${active.mode==='words'?'Ответы остаются скрытыми. Когда партнёр отправит свой, твой следующий ход появится здесь.':'Рисунок скрыт. Когда партнёр закончит свой фрагмент, ты увидишь только край для продолжения.'}</p>${progressHTML(active)}</div>`;
+    return `<div class="game-card center"><div class="game-wait-orbit">⏳</div><div class="game-step-label">Ход ${esc(partnerLabel(active))}</div><h3>Ждём следующий ход</h3><p>${active.mode==='words'?'Ответы остаются скрытыми. Когда партнёр отправит свой, твой следующий ход появится здесь.':'Рисунок скрыт. Когда партнёр закончит свой фрагмент, ты увидишь только край для продолжения.'}</p>${progressHTML(active)}<div class="game-actions">${stopButtonHTML()}</div></div>`;
   }
   function resultHTML(result){
     const s=result.session||{},turns=result.turns||[];
@@ -121,6 +122,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     document.querySelectorAll('[data-game-mode]').forEach(b=>b.addEventListener('click',()=>{if(state.active||busy)return;selectedMode=b.dataset.gameMode||'words';render()}));
     $('#gameStart')?.addEventListener('click',startGame);
     $('#gameSubmitWord')?.addEventListener('click',submitWord);
+    $('#gameStop')?.addEventListener('click',stopGame);
     document.querySelectorAll('[data-game-result]').forEach(b=>b.addEventListener('click',()=>loadResult(b.dataset.gameResult)));
     $('#gameDismissResult')?.addEventListener('click',()=>{dismissedResultId=lastResult?.session?.id||state.latest_finished?.id||'';lastResult=null;render()});
     if($('#gameCanvas'))setupCanvas();
@@ -156,18 +158,29 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     if(!token()){state={author:'',active:null,history:[],latest_finished:null};lastResult=null;if(forceRender)render();updateTile();return}
     try{
       const d=await api('state');
-      const before=JSON.stringify({a:state.active,h:state.latest_finished?.id});
+      const before=JSON.stringify({a:state.active,h:state.latest_finished?.id,r:lastResult?.session?.id});
       state={author:d.author||'',active:d.active||null,history:Array.isArray(d.history)?d.history:[],latest_finished:d.latest_finished||null};
       if(state.active)lastResult=null;
       await maybeLoadLatest();
       const after=JSON.stringify({a:state.active,h:state.latest_finished?.id,r:lastResult?.session?.id});
-      if(forceRender||before!==after||$('#games')?.classList.contains('active'))render();else updateTile();
+      if(forceRender||before!==after)render();else updateTile();
     }catch(e){if(forceRender&&$('#games')?.classList.contains('active')){const shell=$('#gameShell');if(shell)shell.innerHTML=`<div class="game-inline-error">${esc(e.message||'Не удалось обновить игру')}</div>`}}
   }
   async function startGame(){
     if(busy||state.active)return;setBusy(true);
     try{const d=await api('start',{mode:selectedMode});state={author:d.author||state.author,active:d.active||null,history:d.history||state.history,latest_finished:d.latest_finished||state.latest_finished};lastResult=null;render()}
     catch(e){showToast(e.message||'Не удалось начать игру')}
+    finally{setBusy(false)}
+  }
+  async function stopGame(){
+    if(busy||!state.active)return;
+    if(!confirm('Завершить текущую игру?\n\nНезавершённая партия будет удалена, после этого можно начать новую.'))return;
+    const sessionId=state.active.id;setBusy(true);
+    try{
+      const d=await api('cancel',{session_id:sessionId});
+      state={author:d.author||state.author,active:d.active||null,history:Array.isArray(d.history)?d.history:state.history,latest_finished:d.latest_finished||null};
+      lastResult=null;dismissedResultId='';render();showToast('Игра завершена');
+    }catch(e){showToast(e.message||'Не удалось завершить игру')}
     finally{setBusy(false)}
   }
   async function submitWord(){
