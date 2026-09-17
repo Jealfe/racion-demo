@@ -162,12 +162,21 @@ if(typeof window!=='undefined'){
 
   const ensureActivityPlaceholder=()=>{
     const anchor=document.querySelector('#dailyQuote');
-    if(!anchor||document.querySelector('#familyActivity'))return;
+    if(!anchor)return;
+    let tools=document.querySelector('#familyTools');
+    if(!tools){
+      tools=document.createElement('div');
+      tools.id='familyTools';
+      tools.className='family-tools';
+      tools.innerHTML='<button class="family-tool" id="installApp">📲 На экран телефона</button><button class="family-tool" id="pushBtn">🔔 Уведомления</button>';
+      anchor.after(tools);
+    }
+    if(document.querySelector('#familyActivity'))return;
     const activity=document.createElement('section');
     activity.id='familyActivity';
     activity.className='activity-card';
     activity.innerHTML='<div class="activity-head"><h3>Что нового</h3><span>у нас двоих</span></div><div class="activity-list" id="activityList"><div class="activity-empty">⏳ Обновляем последние записи…</div></div><button class="activity-more" id="activityMore" hidden></button>';
-    anchor.after(activity);
+    tools.after(activity);
   };
 
   const renderStartupActivity=activity=>{
