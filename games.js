@@ -37,6 +37,12 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   function prettyDate(v){const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):''}
   function partnerLabel(active){return active?.current_author||'партнёра'}
   function stopButtonHTML(){return '<button class="game-soft game-dangerless" id="gameStop">Завершить игру</button>'}
+  function viewKey(){
+    if(!token())return 'no-token';
+    if(lastResult)return `result:${lastResult?.session?.id||''}`;
+    if(state.active)return `active:${state.active.id}:${state.active.mode}:${state.active.current_step}:${state.active.current_author||''}:${state.active.my_turn?'mine':'wait'}`;
+    return `setup:${selectedMode}:${state.latest_finished?.id||''}:${dismissedResultId||''}`;
+  }
 
   const style=document.createElement('style');
   style.id='games-v1-styles';
@@ -54,8 +60,8 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   .game-answer{width:100%;min-height:108px;border:1px solid #e8dfda;background:#fbf9f7;border-radius:16px;padding:13px;font:inherit;font-size:15px;resize:vertical;outline:none}.game-answer:focus{border-color:#bda7c3;box-shadow:0 0 0 3px rgba(164,129,174,.1)}
   .game-primary{width:100%;border:0;border-radius:15px;padding:14px 16px;background:#29272a;color:#fff;font:inherit;font-size:13px;font-weight:900;cursor:pointer;margin-top:11px}.game-primary:disabled{opacity:.45}.game-soft{border:0;border-radius:13px;padding:10px 12px;background:#f3efeb;color:#5f5752;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.game-dangerless{background:#f8edf0;color:#9a5964}.game-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.game-actions .game-soft{flex:1}
   .game-wait-orbit{width:66px;height:66px;border-radius:50%;margin:0 auto 13px;display:grid;place-items:center;background:#f6f0fa;font-size:28px;animation:gameFloat 2.1s ease-in-out infinite}@keyframes gameFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-  .game-edge-wrap{margin:10px 0 0;border:1px dashed #cfc3d3;border-bottom:0;border-radius:14px 14px 0 0;overflow:hidden;background:#fff}.game-edge-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#9c899f;padding:6px 9px;background:#f8f4fa}.game-edge-preview{display:block;width:100%;height:30px;object-fit:fill;background:#fff}
-  .game-canvas-wrap{border:1px solid #ded5df;border-radius:16px;overflow:hidden;background:#fff;touch-action:none}.game-edge-wrap+.game-canvas-wrap{border-radius:0 0 16px 16px}.game-canvas{display:block;width:100%;height:auto;aspect-ratio:5/2;background:#fff;touch-action:none}.game-tools{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap}.game-color{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d9d0cb;cursor:pointer;padding:0}.game-color.active{box-shadow:0 0 0 2px #7d6a83}.game-size{border:0;background:#f2eeea;border-radius:11px;padding:8px 10px;font-size:10px;font-weight:800;cursor:pointer}.game-size.active{background:#29272a;color:#fff}.game-tool-spacer{flex:1}
+  .game-edge-wrap{margin:10px 0 0;border:1px dashed #cfc3d3;border-bottom:0;border-radius:14px 14px 0 0;overflow:hidden;background:#fff}.game-edge-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#9c899f;padding:6px 9px;background:#f8f4fa}.game-edge-preview{display:block;width:100%;height:auto;aspect-ratio:900/32;object-fit:fill;background:#fff}
+  .game-canvas-wrap{position:relative;border:1px solid #ded5df;border-radius:16px;overflow:hidden;background:#fff;touch-action:none}.game-edge-wrap+.game-canvas-wrap{border-radius:0 0 16px 16px}.game-canvas{display:block;width:100%;height:auto;aspect-ratio:5/2;background:#fff;touch-action:none}.game-share-guide{position:absolute;left:0;right:0;bottom:8.8889%;height:0;border-top:2px dashed rgba(128,86,141,.72);pointer-events:none;z-index:3}.game-share-guide span{position:absolute;right:6px;top:4px;padding:2px 5px;border-radius:7px;background:rgba(255,255,255,.9);color:#84678d;font-size:7px;font-weight:900;letter-spacing:.02em;white-space:nowrap;box-shadow:0 1px 4px rgba(61,42,68,.08)}.game-tools{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap}.game-color{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d9d0cb;cursor:pointer;padding:0}.game-color.active{box-shadow:0 0 0 2px #7d6a83}.game-size{border:0;background:#f2eeea;border-radius:11px;padding:8px 10px;font-size:10px;font-weight:800;cursor:pointer}.game-size.active{background:#29272a;color:#fff}.game-tool-spacer{flex:1}
   .game-history{display:grid;gap:7px;margin-top:9px}.game-history-item{width:100%;border:1px solid #eee6e0;background:#fff;border-radius:15px;padding:11px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;text-align:left;cursor:pointer}.game-history-item span:first-child{font-size:20px}.game-history-item b{display:block;font-size:11px}.game-history-item small{font-size:8px;color:#9a918c}.game-history-item em{font-style:normal;color:#aaa;font-size:16px}
   .game-story{display:grid;gap:8px;margin-top:13px}.game-story-row{border-radius:15px;background:#faf7f4;padding:12px;text-align:left}.game-story-row small{display:block;font-size:8px;color:#a09690;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}.game-story-row b{font-size:13px;line-height:1.4}.game-story-row .game-author{display:block;font-size:8px;color:#9a7d91;margin-top:5px}
   .game-drawing-result{margin-top:14px;border-radius:18px;overflow:hidden;border:1px solid #e7dfda;background:#fff}.game-drawing-result img{display:block;width:100%;height:auto;margin:0;padding:0;border:0}.game-result-title{font-size:24px!important;margin-bottom:4px!important}.game-sync-note{margin-top:9px!important;font-size:9px!important}.game-inline-error{padding:11px;border-radius:13px;background:#fff3f1;color:#9a5c55;font-size:10px;margin-top:9px}
@@ -84,7 +90,8 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     return screen;
   }
   function openGames(){
-    ensureScreen();document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.id==='games'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.remove('active'));window.scrollTo({top:0,behavior:'smooth'});refresh(true);
+    ensureScreen();document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.id==='games'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.remove('active'));window.scrollTo({top:0,behavior:'smooth'});
+    const shell=$('#gameShell');if(shell?.dataset.gameViewKey!==viewKey())render();else updateTile();refresh(false);
   }
   function openHome(){
     document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.id==='home'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.toggle('active',x.dataset.nav==='home'));window.scrollTo({top:0,behavior:'smooth'});
@@ -106,7 +113,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   }
   function myTurnHTML(active){
     if(active.mode==='words')return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p><textarea class="game-answer" id="gameAnswer" maxlength="800" placeholder="Напиши что-нибудь неожиданное…"></textarea><button class="game-primary" id="gameSubmitWord">Отправить ответ</button><p class="game-sync-note">После отправки ответ спрячется до конца партии.</p><div class="game-actions">${stopButtonHTML()}</div></div>`;
-    return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p>${active.preview_data?`<div class="game-edge-wrap"><div class="game-edge-label">виден только край предыдущего рисунка</div><img class="game-edge-preview" src="${esc(active.preview_data)}" alt="Край предыдущего рисунка"></div>`:''}<div class="game-canvas-wrap"><canvas class="game-canvas" id="gameCanvas" width="900" height="360"></canvas></div><div class="game-tools"><button class="game-color active" data-game-color="#252329" style="background:#252329" aria-label="Чёрный"></button><button class="game-color" data-game-color="#d76773" style="background:#d76773" aria-label="Красный"></button><button class="game-color" data-game-color="#5678aa" style="background:#5678aa" aria-label="Синий"></button><button class="game-color" data-game-color="#65916a" style="background:#65916a" aria-label="Зелёный"></button><span class="game-tool-spacer"></span><button class="game-size active" data-game-size="7">тонко</button><button class="game-size" data-game-size="14">толще</button></div><div class="game-actions"><button class="game-soft" id="gameUndo">↶ Отменить</button><button class="game-soft game-dangerless" id="gameClear">Очистить</button></div><button class="game-primary" id="gameSubmitDrawing" disabled>Отправить рисунок</button><p class="game-sync-note">Следующий игрок увидит только нижнюю полоску этого фрагмента.</p><div class="game-actions">${stopButtonHTML()}</div></div>`;
+    return `<div class="game-card"><div class="game-step-label">Твой ход · ${Number(active.current_step)+1} из ${active.total_steps}</div>${progressHTML(active)}<p class="game-prompt">${esc(active.prompt)}</p>${active.preview_data?`<div class="game-edge-wrap"><div class="game-edge-label">виден только край предыдущего рисунка</div><img class="game-edge-preview" src="${esc(active.preview_data)}" alt="Край предыдущего рисунка"></div>`:''}<div class="game-canvas-wrap"><canvas class="game-canvas" id="gameCanvas" width="900" height="360"></canvas><div class="game-share-guide" aria-hidden="true"><span>ниже увидит партнёр</span></div></div><div class="game-tools"><button class="game-color active" data-game-color="#252329" style="background:#252329" aria-label="Чёрный"></button><button class="game-color" data-game-color="#d76773" style="background:#d76773" aria-label="Красный"></button><button class="game-color" data-game-color="#5678aa" style="background:#5678aa" aria-label="Синий"></button><button class="game-color" data-game-color="#65916a" style="background:#65916a" aria-label="Зелёный"></button><span class="game-tool-spacer"></span><button class="game-size active" data-game-size="7">тонко</button><button class="game-size" data-game-size="14">толще</button></div><div class="game-actions"><button class="game-soft" id="gameUndo">↶ Отменить</button><button class="game-soft game-dangerless" id="gameClear">Очистить</button></div><button class="game-primary" id="gameSubmitDrawing" disabled>Отправить рисунок</button><p class="game-sync-note">Следующий игрок увидит только нижнюю полоску под пунктиром.</p><div class="game-actions">${stopButtonHTML()}</div></div>`;
   }
   function waitingHTML(active){
     return `<div class="game-card center"><div class="game-wait-orbit">⏳</div><div class="game-step-label">Ход ${esc(partnerLabel(active))}</div><h3>Ждём следующий ход</h3><p>${active.mode==='words'?'Ответы остаются скрытыми. Когда партнёр отправит свой, твой следующий ход появится здесь.':'Рисунок скрыт. Когда партнёр закончит свой фрагмент, ты увидишь только край для продолжения.'}</p>${progressHTML(active)}<div class="game-actions">${stopButtonHTML()}</div></div>`;
@@ -129,14 +136,14 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   }
   function render(){
     const shell=$('#gameShell');if(!shell)return;
-    if(!token()){shell.innerHTML=noTokenHTML();updateTile();return}
-    if(lastResult){shell.innerHTML=resultHTML(lastResult);bindRendered();updateTile();return}
+    if(!token()){shell.innerHTML=noTokenHTML();shell.dataset.gameViewKey=viewKey();updateTile();return}
+    if(lastResult){shell.innerHTML=resultHTML(lastResult);shell.dataset.gameViewKey=viewKey();bindRendered();updateTile();return}
     if(state.active){
       selectedMode=state.active.mode;
       shell.innerHTML=`<div class="game-segment"><button class="game-mode ${selectedMode==='words'?'active':''}" disabled>📝 Слова</button><button class="game-mode ${selectedMode==='drawing'?'active':''}" disabled>🎨 Рисунок</button></div>${state.active.my_turn?myTurnHTML(state.active):waitingHTML(state.active)}`;
-      bindRendered();updateTile();return;
+      shell.dataset.gameViewKey=viewKey();bindRendered();updateTile();return;
     }
-    shell.innerHTML=setupHTML();bindRendered();updateTile();
+    shell.innerHTML=setupHTML();shell.dataset.gameViewKey=viewKey();bindRendered();updateTile();
   }
   function updateTile(){
     const tile=ensureTile();if(!tile)return;
@@ -165,7 +172,8 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
       await maybeLoadLatest();
       const after=JSON.stringify({a:state.active,h:state.latest_finished?.id,r:lastResult?.session?.id});
       const isOpen=Boolean($('#games')?.classList.contains('active'));
-      if((forceRender&&isOpen)||(before!==after&&wasOpen&&isOpen))render();else updateTile();
+      const shell=$('#gameShell'),viewChanged=shell?.dataset.gameViewKey!==viewKey();
+      if((forceRender&&isOpen)||(before!==after&&wasOpen&&isOpen)||viewChanged&&isOpen)render();else updateTile();
     }catch(e){if(forceRender&&$('#games')?.classList.contains('active')){const shell=$('#gameShell');if(shell)shell.innerHTML=`<div class="game-inline-error">${esc(e.message||'Не удалось обновить игру')}</div>`}}
   }
   async function startGame(){
@@ -181,7 +189,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     try{
       const d=await api('cancel',{session_id:sessionId});
       state={author:d.author||state.author,active:d.active||null,history:Array.isArray(d.history)?d.history:state.history,latest_finished:d.latest_finished||null};
-      lastResult=null;dismissedResultId='';render();showToast('Игра завершена');
+      lastResult=null;dismissedResultId=state.latest_finished?.id||'';render();showToast('Игра завершена');
     }catch(e){showToast(e.message||'Не удалось завершить игру')}
     finally{setBusy(false)}
   }
