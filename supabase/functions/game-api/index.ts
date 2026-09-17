@@ -230,8 +230,8 @@ Deno.serve(async(req)=>{
         .eq('id',session.id).eq('status','active').eq('current_step',step).eq('current_author',device.author_name).select('id').maybeSingle()
       if(advanceErr)throw advanceErr
       if(!advanced){
-        await admin.from('game_turns').delete().eq('game_id',session.id).eq('step',step).eq('author_name',device.author_name).catch(()=>{})
-        if(imagePath)await admin.storage.from('family-games').remove([imagePath]).catch(()=>{})
+        try{await admin.from('game_turns').delete().eq('game_id',session.id).eq('step',step).eq('author_name',device.author_name)}catch{}
+        if(imagePath){try{await admin.storage.from('family-games').remove([imagePath])}catch{}}
         return json({error:'Состояние игры изменилось. Обнови экран'},409)
       }
 
