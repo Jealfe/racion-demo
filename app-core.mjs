@@ -19,7 +19,7 @@ if(typeof window!=='undefined'&&!window.__bootScreenV1){
   boot.id='appBootScreen';
   boot.setAttribute('role','status');
   boot.setAttribute('aria-live','polite');
-  boot.innerHTML='<div class="boot-inner"><div class="boot-heart">❤️</div><div class="boot-title">Мы вдвоём</div><div class="boot-sub">загружаем наше пространство</div></div>';
+  boot.innerHTML='<div class="boot-inner"><div class="boot-heart">❤️</div><div class="boot-title">Мы вдвоём</div><div class="boot-sub">обновляем данные…</div></div>';
   document.body.appendChild(boot);
   let finished=false;
   window.__finishBoot=()=>{
@@ -32,13 +32,34 @@ if(typeof window!=='undefined'&&!window.__bootScreenV1){
   window.__bootScreenV1=true;
 }
 
+if(typeof window!=='undefined' && !window.__stableInnerHtmlPatched){
+  const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+  if(descriptor?.get&&descriptor?.set){
+    Object.defineProperty(Element.prototype,'innerHTML',{
+      configurable:descriptor.configurable,
+      enumerable:descriptor.enumerable,
+      get:descriptor.get,
+      set(value){
+        const next=String(value??'');
+        if(descriptor.get.call(this)===next)return;
+        descriptor.set.call(this,next);
+      }
+    });
+  }
+  window.__stableInnerHtmlPatched=true;
+}
+
 if(typeof window!=='undefined' && !window.__familyTokenGuardPatched){
   const nativeRemove=Storage.prototype.removeItem;
   Storage.prototype.removeItem=function(key){
     if(this===window.localStorage && key==='us_family_token' && !window.__allowFamilyTokenRemoval){
-      if(!sessionStorage.getItem('us_family_recovery_reload')){
-        sessionStorage.setItem('us_family_recovery_reload','1');
-        setTimeout(()=>location.reload(),3500);
+      const token=this.getItem(key)||'';
+      if(token && !sessionStorage.getItem('us_family_recovery_retry')){
+        sessionStorage.setItem('us_family_recovery_retry','1');
+        setTimeout(()=>{
+          sessionStorage.removeItem('us_family_recovery_retry');
+          window.dispatchEvent(new StorageEvent('storage',{key:'us_family_token',oldValue:token,newValue:token,storageArea:window.localStorage,url:location.href}));
+        },5000);
       }
       return;
     }
@@ -62,54 +83,66 @@ if(typeof window!=='undefined' && !window.__familyAccessHashPatched){
 
 if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__familyApiFetchPatched){
   const nativeFetch=window.fetch.bind(window);
-  window.fetch=async(input,init={})=>{
-    const url=typeof input==='string'?input:(input&&typeof input.url==='string'?input.url:String(input));
-    if(!url.includes(FAMILY_API_HOST+'/functions/v1/family-api')) return nativeFetch(input,init);
-    const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
-    const headers=new Headers(init.headers||sourceHeaders||{});
-    if(!headers.has('apikey')) headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
-    const nextInit={...init,headers};
+  const readCache=new Map();
+  const cacheableActions=new Set(['sync','social_sync']);
+  const readTtlMs=3000;
+  const actionFrom=(input,init)=>{
+    let body=init?.body;
+    if(body==null&&input&&typeof input==='object'&&'body' in input)body=input.body;
+    if(typeof body!=='string')return '';
+    try{return String(JSON.parse(body)?.action||'')}catch{return ''}
+  };
+  const invalidateReads=()=>readCache.clear();
+  const doFetch=async(input,nextInit)=>{
     let lastError=null;
     for(let attempt=0;attempt<3;attempt++){
       try{
         const response=await nativeFetch(input,nextInit);
-        if(response.status<500 && response.status!==429){
-          if(response.ok){
-            sessionStorage.removeItem('us_family_recovery_reload');
-            sessionStorage.removeItem('us_family_status_reload');
-          }
-          return response;
-        }
-        if(attempt===2) return response;
+        if(response.status<500 && response.status!==429)return response;
+        if(attempt===2)return response;
       }catch(error){
         lastError=error;
-        if(attempt===2) throw error;
+        if(attempt===2)throw error;
       }
       await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
     }
-    if(lastError) throw lastError;
+    if(lastError)throw lastError;
     return nativeFetch(input,nextInit);
+  };
+  window.fetch=async(input,init={})=>{
+    const url=typeof input==='string'?input:(input&&typeof input.url==='string'?input.url:String(input));
+    if(!url.includes(FAMILY_API_HOST+'/functions/v1/family-api'))return nativeFetch(input,init);
+    const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
+    const headers=new Headers(init.headers||sourceHeaders||{});
+    if(!headers.has('apikey'))headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
+    const nextInit={...init,headers};
+    const action=actionFrom(input,init);
+    const cacheable=cacheableActions.has(action);
+    const cacheKey=cacheable?`${action}:${headers.get('x-family-token')||''}`:'';
+    const now=Date.now();
+    if(cacheable){
+      const cached=readCache.get(cacheKey);
+      if(cached&&now-cached.at<readTtlMs){
+        try{return (await cached.promise).clone()}catch{readCache.delete(cacheKey)}
+      }
+    }else if(action){
+      invalidateReads();
+    }
+    const promise=doFetch(input,nextInit).then(response=>{
+      if(response.ok){
+        sessionStorage.removeItem('us_family_recovery_retry');
+        if(!cacheable)invalidateReads();
+      }
+      return response;
+    });
+    if(cacheable)readCache.set(cacheKey,{at:now,promise});
+    const response=await promise;
+    return cacheable?response.clone():response;
   };
   window.__familyApiFetchPatched=true;
 }
 
 if(typeof window!=='undefined'){
-  const watchCloudStatus=()=>{
-    const token=(localStorage.getItem('us_family_token')||'').trim();
-    const pill=document.querySelector('.local-pill');
-    if(!token||!pill)return;
-    if(pill.textContent.includes('общая синхронизация')){
-      sessionStorage.removeItem('us_family_status_reload');
-      return;
-    }
-    if(pill.textContent.includes('только это устройство')&&!sessionStorage.getItem('us_family_status_reload')){
-      sessionStorage.setItem('us_family_status_reload','1');
-      setTimeout(()=>location.reload(),2500);
-    }
-  };
-  window.addEventListener('load',()=>setTimeout(watchCloudStatus,1200),{once:true});
-  setInterval(watchCloudStatus,5000);
-
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
@@ -125,7 +158,20 @@ if(typeof window!=='undefined'){
   await import('./couple-upgrades-v2.js?v=2');
   await import('./moment-stability-v2.js?v=1');
   await import('./love-popup.js?v=4');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
+
+  const finishWhenReady=async()=>{
+    const hasToken=Boolean((localStorage.getItem('us_family_token')||'').trim());
+    if(hasToken){
+      const started=Date.now();
+      while(Date.now()-started<2600){
+        const activity=document.querySelector('#activityList');
+        if(activity&&activity.childElementCount>0)break;
+        await new Promise(resolve=>setTimeout(resolve,50));
+      }
+    }
+    requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
+  };
+  finishWhenReady();
 }
 
 export const DEFAULT_THANKS_HINT='Выбери, за что хочешь сказать спасибо ❤️';
