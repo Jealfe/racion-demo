@@ -143,6 +143,22 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
 }
 
 if(typeof window!=='undefined'){
+  const ensureActivityPlaceholder=()=>{
+    const anchor=document.querySelector('#dailyQuote');
+    if(!anchor||document.querySelector('#familyTools'))return;
+    const tools=document.createElement('div');
+    tools.id='familyTools';
+    tools.className='family-tools';
+    tools.innerHTML='<button class="family-tool" id="installApp">📲 На экран телефона</button><button class="family-tool" id="pushBtn">🔔 Уведомления</button>';
+    const activity=document.createElement('section');
+    activity.id='familyActivity';
+    activity.className='activity-card';
+    activity.innerHTML='<div class="activity-head"><h3>Что нового</h3><span>у нас двоих</span></div><div class="activity-list" id="activityList"><div class="activity-empty">⏳ Обновляем последние записи…</div></div><button class="activity-more" id="activityMore" hidden></button>';
+    anchor.after(tools);
+    tools.after(activity);
+  };
+  ensureActivityPlaceholder();
+
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
@@ -165,7 +181,7 @@ if(typeof window!=='undefined'){
       const started=Date.now();
       while(Date.now()-started<2600){
         const activity=document.querySelector('#activityList');
-        if(activity&&activity.childElementCount>0)break;
+        if(activity&&activity.childElementCount>0&&!activity.textContent.includes('Обновляем последние записи'))break;
         await new Promise(resolve=>setTimeout(resolve,50));
       }
     }
