@@ -6,6 +6,7 @@ export const test=base.extend({
       const url=new URL(route.request().url());
       if(url.hostname==='127.0.0.1'||url.hostname==='localhost')return route.continue();
       if(url.pathname.endsWith('/reminder-api'))return route.fulfill({json:{ok:true,items:[],people:[]}});
+      if(url.pathname.endsWith('/game-api'))return route.fulfill({json:{ok:true,author:'Муж',active:null,history:[],latest_finished:null}});
       if(url.pathname.endsWith('/family-api'))return route.fulfill({status:401,json:{error:'Unmocked cloud request'}});
       return route.abort();
     });
