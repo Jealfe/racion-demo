@@ -27,6 +27,19 @@ test('главная использует новый компактный пор
   expect(miniBox&&miniBox.height<=52).toBeTruthy();
 });
 
+test('порядок карточек сохраняется, если напоминания загрузились раньше оформления',async({page})=>{
+  await page.route('**/home-cards-redesign.js*',async route=>{
+    await new Promise(resolve=>setTimeout(resolve,250));
+    await route.continue();
+  });
+  await page.reload();
+  await page.waitForFunction(()=>window.__familyRemindersV1&&window.__homeCardsRedesign);
+  // The layout retries once on its timer; assert the settled order as well.
+  await page.waitForTimeout(150);
+  const order=await page.locator('#home .menu > [data-open]').evaluateAll(nodes=>nodes.map(n=>n.dataset.open));
+  expect(order).toEqual(['moments','wishlist','designs','movies','food','ideas','likes','reminders','surprise','thanks']);
+});
+
 test('фото занимает почти половину большой карточки, а текст Хотелок остаётся слева',async({page})=>{
   const wishlist=page.locator('#home .menu [data-open="wishlist"]');
   const photoEl=wishlist.locator('.feature-photo');

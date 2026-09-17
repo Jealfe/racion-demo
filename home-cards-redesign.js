@@ -106,6 +106,7 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
     const ideas=menu.querySelector('[data-open="ideas"]');
     const likes=menu.querySelector('[data-open="likes"]');
     const surprise=menu.querySelector('[data-open="surprise"]');
+    const reminders=menu.querySelector('[data-open="reminders"]');
     const thanks=menu.querySelector('[data-open="thanks"]');
 
     feature(moments,'moments');
@@ -118,7 +119,7 @@ if(typeof document!=='undefined'&&!window.__homeCardsRedesign){
     mini(surprise,'surprise');
     if(thanks)thanks.classList.add('home-hidden');
 
-    [moments,wishlist,designs,movies,food,ideas,likes,surprise,thanks].forEach(x=>x&&menu.appendChild(x));
+    [moments,wishlist,designs,movies,food,ideas,likes,reminders,surprise,thanks].forEach(x=>x&&menu.appendChild(x));
 
     const gear=$('#settingsGear');
     if(gear){
