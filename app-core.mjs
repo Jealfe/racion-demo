@@ -32,6 +32,14 @@ if(typeof window!=='undefined'&&!window.__bootScreenV1){
   window.__bootScreenV1=true;
 }
 
+if(typeof window!=='undefined'&&!window.__startupUiGuard){
+  const style=document.createElement('style');
+  style.id='startup-ui-guard';
+  style.textContent='#familyTools:not(.settings-tools){display:none!important}';
+  document.head.appendChild(style);
+  window.__startupUiGuard=true;
+}
+
 if(typeof window!=='undefined' && !window.__stableInnerHtmlPatched){
   const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
   if(descriptor?.get&&descriptor?.set){
@@ -101,6 +109,7 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
         if(response.status<500 && response.status!==429)return response;
         if(attempt===2)return response;
       }catch(error){
+        if(error?.name==='AbortError')throw error;
         lastError=error;
         if(attempt===2)throw error;
       }
@@ -143,21 +152,69 @@ if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__
 }
 
 if(typeof window!=='undefined'){
+  const ACTIVITY_CACHE_KEY='us_activity_cache_v1';
+  const startupEsc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const startupKindNouns={thanks:'спасибо',wishlist:'хотелку',ideas:'идею',likes:'запись',moments:'момент',movies:'фильм',designs:'идею для дома'};
+  const startupKindTitles={thanks:'Спасибо',wishlist:'Хотелки',ideas:'Идеи',likes:'Нам нравится',moments:'Наши моменты',movies:'Фильмы',designs:'Дом и дизайны'};
+  const startupKindIcon=k=>({thanks:'💌',wishlist:'🛍️',ideas:'💡',likes:'✨',moments:'❤️',movies:'🎬',designs:'🏠'}[k]||'•');
+  const startupActivityCopy=e=>{const noun=startupKindNouns[e.kind]||'запись';if(e.action==='create')return `${e.actor_name} добавил(а) ${noun}`;if(e.action==='edit')return `${e.actor_name} изменил(а) ${noun}`;if(e.action==='done')return `${e.actor_name} отметил(а) выполненным`;if(e.action==='reopen')return `${e.actor_name} вернул(а) в список`;if(e.action==='comment')return `${e.actor_name} написал(а) комментарий`;if(e.action==='reaction')return `${e.actor_name} поставил(а) ${e.data?.emoji||'❤️'}`;if(e.action==='delete')return `${e.actor_name} удалил(а) ${noun}`;return `${e.actor_name} обновил(а) ${noun}`};
+  const startupTimeLabel=v=>{const d=new Date(v);if(!Number.isFinite(d.getTime()))return '';const now=new Date(),same=d.toDateString()===now.toDateString();return same?d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})};
+
   const ensureActivityPlaceholder=()=>{
     const anchor=document.querySelector('#dailyQuote');
-    if(!anchor||document.querySelector('#familyTools'))return;
-    const tools=document.createElement('div');
-    tools.id='familyTools';
-    tools.className='family-tools';
-    tools.innerHTML='<button class="family-tool" id="installApp">📲 На экран телефона</button><button class="family-tool" id="pushBtn">🔔 Уведомления</button>';
+    if(!anchor||document.querySelector('#familyActivity'))return;
     const activity=document.createElement('section');
     activity.id='familyActivity';
     activity.className='activity-card';
     activity.innerHTML='<div class="activity-head"><h3>Что нового</h3><span>у нас двоих</span></div><div class="activity-list" id="activityList"><div class="activity-empty">⏳ Обновляем последние записи…</div></div><button class="activity-more" id="activityMore" hidden></button>';
-    anchor.after(tools);
-    tools.after(activity);
+    anchor.after(activity);
   };
+
+  const renderStartupActivity=activity=>{
+    const box=document.querySelector('#activityList');
+    if(!box)return false;
+    const list=Array.isArray(activity)?activity.slice(0,6):[];
+    if(!list.length){
+      box.innerHTML='<div class="activity-empty">Здесь появятся ваши новые записи, комментарии и реакции.</div>';
+      return true;
+    }
+    box.innerHTML=list.map(e=>`<button class="activity-row" data-activity-kind="${startupEsc(e.kind)}"><span class="activity-ico">${startupKindIcon(e.kind)}</span><span class="activity-copy"><b>${startupEsc(startupActivityCopy(e))}</b><small>${startupEsc(e.text||startupKindTitles[e.kind]||'')}</small></span><span class="activity-time">${startupEsc(startupTimeLabel(e.created_at))}</span></button>`).join('');
+    return true;
+  };
+
+  const readCachedActivity=()=>{
+    try{
+      const cached=JSON.parse(localStorage.getItem(ACTIVITY_CACHE_KEY)||'null');
+      if(!cached||!Array.isArray(cached.activity))return false;
+      return renderStartupActivity(cached.activity);
+    }catch{return false}
+  };
+
+  const loadStartupActivity=async()=>{
+    const tk=(localStorage.getItem('us_family_token')||'').trim();
+    if(!tk)return false;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),4500);
+    try{
+      const response=await fetch(`https://${FAMILY_API_HOST}/functions/v1/family-api`,{
+        method:'POST',
+        headers:{'content-type':'application/json','x-family-token':tk},
+        body:JSON.stringify({action:'social_sync'}),
+        signal:controller.signal
+      });
+      if(!response.ok)return false;
+      const data=await response.json().catch(()=>null);
+      if(!data||!Array.isArray(data.activity))return false;
+      try{localStorage.setItem(ACTIVITY_CACHE_KEY,JSON.stringify({savedAt:Date.now(),activity:data.activity.slice(0,18)}))}catch{}
+      renderStartupActivity(data.activity);
+      return true;
+    }catch{return false}
+    finally{clearTimeout(timer)}
+  };
+
   ensureActivityPlaceholder();
+  const hadCachedActivity=readCachedActivity();
+  const initialActivityPromise=loadStartupActivity();
 
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
@@ -177,13 +234,11 @@ if(typeof window!=='undefined'){
 
   const finishWhenReady=async()=>{
     const hasToken=Boolean((localStorage.getItem('us_family_token')||'').trim());
-    if(hasToken){
-      const started=Date.now();
-      while(Date.now()-started<2600){
-        const activity=document.querySelector('#activityList');
-        if(activity&&activity.childElementCount>0&&!activity.textContent.includes('Обновляем последние записи'))break;
-        await new Promise(resolve=>setTimeout(resolve,50));
-      }
+    if(hasToken&&!hadCachedActivity){
+      await Promise.race([
+        initialActivityPromise,
+        new Promise(resolve=>setTimeout(resolve,2400))
+      ]);
     }
     requestAnimationFrame(()=>requestAnimationFrame(()=>window.__finishBoot?.()));
   };
