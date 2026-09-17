@@ -3,7 +3,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   const API_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
   const token=()=>localStorage.getItem('us_family_token')||'';
   const $=s=>document.querySelector(s);
-  const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt',"'":'&#39;','\"':'&quot;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   let selectedMode='words',state={author:'',active:null,history:[],latest_finished:null},lastResult=null,dismissedResultId='',busy=false,pollTimer=0,canvasState=null;
 
   async function api(action,payload={}){
@@ -155,15 +155,17 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     }
   }
   async function refresh(forceRender=false){
-    if(!token()){state={author:'',active:null,history:[],latest_finished:null};lastResult=null;if(forceRender)render();updateTile();return}
+    const wasOpen=Boolean($('#games')?.classList.contains('active'));
+    if(!token()){state={author:'',active:null,history:[],latest_finished:null};lastResult=null;if(forceRender&&wasOpen)render();updateTile();return}
     try{
-      const d=await api('state');
       const before=JSON.stringify({a:state.active,h:state.latest_finished?.id,r:lastResult?.session?.id});
+      const d=await api('state');
       state={author:d.author||'',active:d.active||null,history:Array.isArray(d.history)?d.history:[],latest_finished:d.latest_finished||null};
       if(state.active)lastResult=null;
       await maybeLoadLatest();
       const after=JSON.stringify({a:state.active,h:state.latest_finished?.id,r:lastResult?.session?.id});
-      if(forceRender||before!==after)render();else updateTile();
+      const isOpen=Boolean($('#games')?.classList.contains('active'));
+      if((forceRender&&isOpen)||(before!==after&&wasOpen&&isOpen))render();else updateTile();
     }catch(e){if(forceRender&&$('#games')?.classList.contains('active')){const shell=$('#gameShell');if(shell)shell.innerHTML=`<div class="game-inline-error">${esc(e.message||'Не удалось обновить игру')}</div>`}}
   }
   async function startGame(){
