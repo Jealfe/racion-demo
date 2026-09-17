@@ -1,10 +1,10 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 
 function installDevice(){
   localStorage.clear();
-  sessionStorage.clear();
+
   localStorage.setItem('us_family_token','t'.repeat(64));
   localStorage.setItem('us_profile',JSON.stringify({name:'Муж'}));
   Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}});

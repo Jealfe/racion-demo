@@ -24,13 +24,7 @@ if(typeof document!=='undefined'&&!window.__v2SocialBridge){
       btn.textContent='💬'+(count?' '+count:'');
     });
   }
-  async function refreshSoon(){
-    for(const delay of [180,500,1000]){
-      await new Promise(r=>setTimeout(r,delay));
-      const data=await socialSync().catch(()=>null);
-      if(data)paint(data);
-    }
-  }
+  window.familyCloud.subscribe('social_sync',paint);
   function keepReminderOrder(){
     const menu=document.querySelector('#home .menu.home-menu-redesign');
     if(!menu)return;
@@ -38,14 +32,13 @@ if(typeof document!=='undefined'&&!window.__v2SocialBridge){
     const surprise=menu.querySelector(':scope > [data-open="surprise"]');
     if(reminder&&surprise&&reminder.nextElementSibling!==surprise)surprise.before(reminder);
   }
-  const orderObserver=new MutationObserver(keepReminderOrder);
-  orderObserver.observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('family-dom-rendered',keepReminderOrder);
   [0,80,250,700].forEach(ms=>setTimeout(keepReminderOrder,ms));
   document.addEventListener('click',e=>{
     const t=e.target.closest?.('.cu2-card [data-react],.cu2-mbody [data-react],.cu2-card [data-comments],.cu2-mbody [data-comments]');
     if(!t)return;
     if(t.matches('[data-react]')) t.classList.toggle('active');
-    refreshSoon();
+
   });
   window.__v2SocialBridge=true;
 }

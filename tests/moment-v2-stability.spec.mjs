@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 const unread={thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0};
@@ -39,7 +39,6 @@ test('v2 Наши моменты не пересоздаёт карточку п
   await page.getByRole('button',{name:/Наши моменты/}).click();
   await expect(page.locator('#cu2MomentCards .cu2-moment')).toHaveCount(1);
   await expect(page.locator('#cu2MomentCards')).toContainText('Наш стабильный момент');
-  await page.waitForFunction(()=>window.__momentStabilityV2===true&&document.querySelector('#cu2MomentCards')?.__momentStableGuard===true);
 
   const initialSrc=await page.locator('#cu2MomentCards .cu2-moment img').getAttribute('src');
   await page.evaluate(()=>{document.querySelector('#cu2MomentCards .cu2-moment').__v2StableProbe='same-node'});

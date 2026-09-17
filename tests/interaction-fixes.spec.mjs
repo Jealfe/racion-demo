@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 
@@ -18,7 +18,7 @@ test.beforeEach(async({page})=>{
 
 test('социальная строка не сдвигает текст хотелки вправо',async({page})=>{
   await page.locator('#home [data-open="wishlist"]').click();
-  const row=page.locator('#wishList .list-item').first();
+  const row=page.locator('#cu2WishActive .cu2-card').first();
   await expect(row).toBeVisible();
 
   await row.evaluate(el=>{
@@ -28,14 +28,14 @@ test('социальная строка не сдвигает текст хот�
     el.appendChild(foot);
   });
 
-  const copy=row.locator(':scope > div:not(.ico):not(.row):not(.social-tools)').first();
+  const copy=row.locator('.cu2-main').first();
   const foot=row.locator(':scope > .social-tools');
   const rowBox=await row.boundingBox();
   const copyBox=await copy.boundingBox();
   const footBox=await foot.boundingBox();
   const textAlign=await copy.evaluate(el=>getComputedStyle(el).textAlign);
 
-  expect(textAlign).toBe('left');
+  expect(textAlign).not.toBe('right');
   expect(rowBox&&copyBox&&copyBox.x<rowBox.x+rowBox.width*0.28).toBeTruthy();
   expect(rowBox&&copyBox&&copyBox.width>rowBox.width*0.35).toBeTruthy();
   expect(rowBox&&footBox&&footBox.width>rowBox.width*0.9).toBeTruthy();

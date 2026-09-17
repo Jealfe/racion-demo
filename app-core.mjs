@@ -1,3 +1,9 @@
+import {setHTML} from './dom-render.mjs';
+import {installCloudRuntime,registerServiceWorker} from './cloud-runtime.mjs';
+
+if(typeof window!=='undefined'&&location.hash.startsWith('#access=')){
+  try{const next=decodeURIComponent(location.hash.slice(8)).trim();if(next.length>=32)localStorage.setItem('us_family_token',next)}catch{}
+}
 const FAMILY_API_HOST='jlejyppniaifdavllwid.supabase.co';
 const FAMILY_PUBLISHABLE_KEY='sb_publishable_sMtJPBsGvDjvtB0e-1ea0w_Yuk9pzae';
 
@@ -19,7 +25,7 @@ if(typeof window!=='undefined'&&!window.__bootScreenV1){
   boot.id='appBootScreen';
   boot.setAttribute('role','status');
   boot.setAttribute('aria-live','polite');
-  boot.innerHTML='<div class="boot-inner"><div class="boot-heart">❤️</div><div class="boot-title">Мы вдвоём</div><div class="boot-sub">обновляем данные…</div></div>';
+  setHTML(boot,'<div class="boot-inner"><div class="boot-heart">❤️</div><div class="boot-title">Мы вдвоём</div><div class="boot-sub">обновляем данные…</div></div>');
   document.body.appendChild(boot);
   let finished=false;
   window.__finishBoot=()=>{
@@ -40,42 +46,6 @@ if(typeof window!=='undefined'&&!window.__startupUiGuard){
   window.__startupUiGuard=true;
 }
 
-if(typeof window!=='undefined' && !window.__stableInnerHtmlPatched){
-  const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
-  if(descriptor?.get&&descriptor?.set){
-    Object.defineProperty(Element.prototype,'innerHTML',{
-      configurable:descriptor.configurable,
-      enumerable:descriptor.enumerable,
-      get:descriptor.get,
-      set(value){
-        const next=String(value??'');
-        if(descriptor.get.call(this)===next)return;
-        descriptor.set.call(this,next);
-      }
-    });
-  }
-  window.__stableInnerHtmlPatched=true;
-}
-
-if(typeof window!=='undefined' && !window.__familyTokenGuardPatched){
-  const nativeRemove=Storage.prototype.removeItem;
-  Storage.prototype.removeItem=function(key){
-    if(this===window.localStorage && key==='us_family_token' && !window.__allowFamilyTokenRemoval){
-      const token=this.getItem(key)||'';
-      if(token && !sessionStorage.getItem('us_family_recovery_retry')){
-        sessionStorage.setItem('us_family_recovery_retry','1');
-        setTimeout(()=>{
-          sessionStorage.removeItem('us_family_recovery_retry');
-          window.dispatchEvent(new StorageEvent('storage',{key:'us_family_token',oldValue:token,newValue:token,storageArea:window.localStorage,url:location.href}));
-        },5000);
-      }
-      return;
-    }
-    return nativeRemove.call(this,key);
-  };
-  window.__familyTokenGuardPatched=true;
-}
-
 if(typeof window!=='undefined' && !window.__familyAccessHashPatched){
   window.addEventListener('hashchange',()=>{
     if(!location.hash.startsWith('#access='))return;
@@ -89,70 +59,13 @@ if(typeof window!=='undefined' && !window.__familyAccessHashPatched){
   window.__familyAccessHashPatched=true;
 }
 
-if(typeof window!=='undefined' && typeof window.fetch==='function' && !window.__familyApiFetchPatched){
-  const nativeFetch=window.fetch.bind(window);
-  const readCache=new Map();
-  const cacheableActions=new Set(['sync','social_sync']);
-  const readTtlMs=3000;
-  const actionFrom=(input,init)=>{
-    let body=init?.body;
-    if(body==null&&input&&typeof input==='object'&&'body' in input)body=input.body;
-    if(typeof body!=='string')return '';
-    try{return String(JSON.parse(body)?.action||'')}catch{return ''}
-  };
-  const invalidateReads=()=>readCache.clear();
-  const doFetch=async(input,nextInit)=>{
-    let lastError=null;
-    for(let attempt=0;attempt<3;attempt++){
-      try{
-        const response=await nativeFetch(input,nextInit);
-        if(response.status<500 && response.status!==429)return response;
-        if(attempt===2)return response;
-      }catch(error){
-        if(error?.name==='AbortError')throw error;
-        lastError=error;
-        if(attempt===2)throw error;
-      }
-      await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
-    }
-    if(lastError)throw lastError;
-    return nativeFetch(input,nextInit);
-  };
-  window.fetch=async(input,init={})=>{
-    const url=typeof input==='string'?input:(input&&typeof input.url==='string'?input.url:String(input));
-    if(!url.includes(FAMILY_API_HOST+'/functions/v1/family-api'))return nativeFetch(input,init);
-    const sourceHeaders=(input&&typeof input==='object'&&input.headers)?input.headers:undefined;
-    const headers=new Headers(init.headers||sourceHeaders||{});
-    if(!headers.has('apikey'))headers.set('apikey',FAMILY_PUBLISHABLE_KEY);
-    const nextInit={...init,headers};
-    const action=actionFrom(input,init);
-    const cacheable=cacheableActions.has(action);
-    const cacheKey=cacheable?`${action}:${headers.get('x-family-token')||''}`:'';
-    const now=Date.now();
-    if(cacheable){
-      const cached=readCache.get(cacheKey);
-      if(cached&&now-cached.at<readTtlMs){
-        try{return (await cached.promise).clone()}catch{readCache.delete(cacheKey)}
-      }
-    }else if(action){
-      invalidateReads();
-    }
-    const promise=doFetch(input,nextInit).then(response=>{
-      if(response.ok){
-        sessionStorage.removeItem('us_family_recovery_retry');
-        if(!cacheable)invalidateReads();
-      }
-      return response;
-    });
-    if(cacheable)readCache.set(cacheKey,{at:now,promise});
-    const response=await promise;
-    return cacheable?response.clone():response;
-  };
-  window.__familyApiFetchPatched=true;
+if(typeof window!=='undefined'){
+  installCloudRuntime();
+  window.registerFamilyServiceWorker=registerServiceWorker;
 }
 
 if(typeof window!=='undefined'){
-  const ACTIVITY_CACHE_KEY='us_activity_cache_v1';
+  const ACTIVITY_CACHE_KEY='us_activity_cache_v2';
   const startupEsc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const startupKindNouns={thanks:'спасибо',wishlist:'хотелку',ideas:'идею',likes:'запись',moments:'момент',movies:'фильм',designs:'идею для дома'};
   const startupKindTitles={thanks:'Спасибо',wishlist:'Хотелки',ideas:'Идеи',likes:'Нам нравится',moments:'Наши моменты',movies:'Фильмы',designs:'Дом и дизайны'};
@@ -168,14 +81,14 @@ if(typeof window!=='undefined'){
       tools=document.createElement('div');
       tools.id='familyTools';
       tools.className='family-tools';
-      tools.innerHTML='<button class="family-tool" id="installApp">📲 На экран телефона</button><button class="family-tool" id="pushBtn">🔔 Уведомления</button>';
+      setHTML(tools,'<button class="family-tool" id="installApp">📲 На экран телефона</button><button class="family-tool" id="pushBtn">🔔 Уведомления</button>');
       anchor.after(tools);
     }
     if(document.querySelector('#familyActivity'))return;
     const activity=document.createElement('section');
     activity.id='familyActivity';
     activity.className='activity-card';
-    activity.innerHTML='<div class="activity-head"><h3>Что нового</h3><span>у нас двоих</span></div><div class="activity-list" id="activityList"><div class="activity-empty">⏳ Обновляем последние записи…</div></div><button class="activity-more" id="activityMore" hidden></button>';
+    setHTML(activity,'<div class="activity-head"><h3>Что нового</h3><span>у нас двоих</span></div><div class="activity-list" id="activityList"><div class="activity-empty">⏳ Обновляем последние записи…</div></div><button class="activity-more" id="activityMore" hidden></button>');
     tools.after(activity);
   };
 
@@ -184,17 +97,17 @@ if(typeof window!=='undefined'){
     if(!box)return false;
     const list=Array.isArray(activity)?activity.slice(0,6):[];
     if(!list.length){
-      box.innerHTML='<div class="activity-empty">Здесь появятся ваши новые записи, комментарии и реакции.</div>';
+      setHTML(box,'<div class="activity-empty">Здесь появятся ваши новые записи, комментарии и реакции.</div>');
       return true;
     }
-    box.innerHTML=list.map(e=>`<button class="activity-row" data-activity-kind="${startupEsc(e.kind)}"><span class="activity-ico">${startupKindIcon(e.kind)}</span><span class="activity-copy"><b>${startupEsc(startupActivityCopy(e))}</b><small>${startupEsc(e.text||startupKindTitles[e.kind]||'')}</small></span><span class="activity-time">${startupEsc(startupTimeLabel(e.created_at))}</span></button>`).join('');
+    setHTML(box,list.map(e=>`<button class="activity-row" data-activity-kind="${startupEsc(e.kind)}"><span class="activity-ico">${startupKindIcon(e.kind)}</span><span class="activity-copy"><b>${startupEsc(startupActivityCopy(e))}</b><small>${startupEsc(e.text||startupKindTitles[e.kind]||'')}</small></span><span class="activity-time">${startupEsc(startupTimeLabel(e.created_at))}</span></button>`).join(''));
     return true;
   };
 
   const readCachedActivity=()=>{
     try{
       const cached=JSON.parse(localStorage.getItem(ACTIVITY_CACHE_KEY)||'null');
-      if(!cached||!Array.isArray(cached.activity))return false;
+      if(!cached||cached.token!==localStorage.getItem('us_family_token')||!Array.isArray(cached.activity))return false;
       return renderStartupActivity(cached.activity);
     }catch{return false}
   };
@@ -214,7 +127,7 @@ if(typeof window!=='undefined'){
       if(!response.ok)return false;
       const data=await response.json().catch(()=>null);
       if(!data||!Array.isArray(data.activity))return false;
-      try{localStorage.setItem(ACTIVITY_CACHE_KEY,JSON.stringify({savedAt:Date.now(),activity:data.activity.slice(0,18)}))}catch{}
+      try{localStorage.setItem(ACTIVITY_CACHE_KEY,JSON.stringify({token:tk,activity:data.activity.slice(0,18)}))}catch{}
       renderStartupActivity(data.activity);
       return true;
     }catch{return false}
@@ -225,6 +138,10 @@ if(typeof window!=='undefined'){
   const hadCachedActivity=readCachedActivity();
   const initialActivityPromise=loadStartupActivity();
 
+  // Fetch independent modules in parallel, retaining their required execution order below.
+  for(const href of ['./ui-fixes.js','./ui-polish.js','./design-board.js','./design-paste-images.js?v=1','./social-upgrades.js?v=2','./settings-gear-final.js?v=3','./push-recovery.js?v=1','./home-layout.js','./home-cards-redesign.js?v=8','./wishlist-artwork-v2.js?v=1','./food-options-expanded.js?v=1','./interaction-fixes.js?v=2','./couple-upgrades-v2.js?v=2','./love-popup.js?v=4']){
+    const link=document.createElement('link');link.rel='modulepreload';link.href=href;document.head.appendChild(link);
+  }
   await import('./ui-fixes.js');
   await import('./ui-polish.js');
   await import('./design-board.js');
@@ -238,7 +155,7 @@ if(typeof window!=='undefined'){
   await import('./food-options-expanded.js?v=1');
   await import('./interaction-fixes.js?v=2');
   await import('./couple-upgrades-v2.js?v=2');
-  await import('./moment-stability-v2.js?v=1');
+
   await import('./love-popup.js?v=4');
 
   const finishWhenReady=async()=>{

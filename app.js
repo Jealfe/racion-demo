@@ -1,9 +1,11 @@
+import {setHTML} from './dom-render.mjs';
+import {createOutbox} from './cloud-outbox.mjs';
 import {DEFAULT_THANKS_HINT,makeThanksText,makeMessageId,encodeThanksPayload,decodeThanksPayload,addUniqueThanks,pickByTag,localDateValue,normalizeAuthor,unreadTotal} from './app-core.mjs';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const CLOUD_API='https://jlejyppniaifdavllwid.supabase.co/functions/v1/family-api';
 let cloudToken=localStorage.getItem('us_family_token')||'';
-let cloudApplying=false, cloudReady=false, cloudBusy=false;
+let cloudApplying=false, cloudReady=false, supportsIdempotentCreate=false;
 if(location.hash.startsWith('#access=')){
   cloudToken=decodeURIComponent(location.hash.slice(8));
   localStorage.setItem('us_family_token',cloudToken);
@@ -15,7 +17,7 @@ const localStore={
 };
 const store={
   get:localStore.get,
-  set(k,v){const old=localStore.get(k,[]);const ok=localStore.set(k,v);if(ok&&!cloudApplying&&cloudReady)queueCloudDiff(k,old,v);return ok}
+  set(k,v){const old=localStore.get(k,[]);const ok=localStore.set(k,v);if(ok&&!cloudApplying&&cloudToken)queueCloudDiff(k,old,v);return ok}
 };
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove('show'),1900)}
@@ -23,7 +25,7 @@ async function cloudApi(action,payload={}){
   if(!cloudToken) throw new Error('NO_TOKEN');
   const r=await fetch(CLOUD_API,{method:'POST',headers:{'content-type':'application/json','x-family-token':cloudToken},body:JSON.stringify({action,...payload})});
   const data=await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(data.error||'CLOUD_ERROR');
+  if(!r.ok){const error=new Error(data.error||'CLOUD_ERROR');error.status=r.status;throw error}
   return data;
 }
 const keyKind={movies:'movies',thanks:'thanks',wishes:'wishlist',ideas:'ideas',likes:'likes',moments:'moments'};
@@ -37,24 +39,31 @@ function itemPayload(key,x){
   return null;
 }
 function isCloudId(id){return typeof id==='string'&&/^[0-9a-f-]{30,}$/i.test(id)}
-async function queueCloudDiff(key,oldValue,newValue){
-  if(!keyKind[key]||cloudBusy)return;
-  const old=Array.isArray(oldValue)?oldValue:[], neu=Array.isArray(newValue)?newValue:[];
-  const oldMap=new Map(old.map(x=>[String(x.id),x])), newMap=new Map(neu.map(x=>[String(x.id),x]));
-  const added=neu.filter(x=>!oldMap.has(String(x.id)));
-  const removed=old.filter(x=>!newMap.has(String(x.id))&&isCloudId(x.id));
-  const changed=neu.filter(x=>isCloudId(x.id)&&oldMap.has(String(x.id))&&JSON.stringify(x)!==JSON.stringify(oldMap.get(String(x.id))));
-  try{
-    for(const x of added){const p=itemPayload(key,x);if(p)await cloudApi('create',p)}
-    for(const x of changed){const p=itemPayload(key,x);if(p)await cloudApi('update',{id:x.id,text:p.text,emoji:p.emoji,data:p.data})}
-    for(const x of removed)await cloudApi('delete',{id:x.id});
-    if(added.length||changed.length||removed.length)setTimeout(syncCloud,120);
-  }catch(e){console.error(e);toast('Не удалось синхронизировать — запись осталась на этом устройстве')}
+const outbox=createOutbox({
+  storage:localStorage,getToken:()=>cloudToken,send:cloudApi,
+  onChange:()=>window.familyCloud.refresh(),
+  onError:()=>toast('Ответ облака не получен. Запись сохранена на устройстве и не будет отправлена повторно вслепую')
+});
+function queueCloudDiff(key,oldValue,newValue){
+  if(!keyKind[key])return;
+  const old=Array.isArray(oldValue)?oldValue:[],next=Array.isArray(newValue)?newValue:[];
+  const before=new Map(old.map(x=>[String(x.id),x])),after=new Map(next.map(x=>[String(x.id),x]));
+  const operations=[];
+  for(const x of next){
+    const previous=before.get(String(x.id)),payload=itemPayload(key,x);
+    if(!previous)operations.push({key,action:'create',payload,localId:x.id,local:x});
+    else if((isCloudId(x.id)||outbox.pending().some(op=>String(op.localId)===String(x.id)))&&JSON.stringify(previous)!==JSON.stringify(x)){
+      const local=Object.fromEntries(Object.entries(x).filter(([k,v])=>JSON.stringify(previous[k])!==JSON.stringify(v)));
+      operations.push({key,action:'update',payload:{id:x.id,text:payload.text,emoji:payload.emoji,data:payload.data},local});
+    }
+  }
+  for(const x of old)if(!after.has(String(x.id))&&(isCloudId(x.id)||outbox.pending().some(op=>String(op.localId)===String(x.id))))operations.push({key,action:'delete',payload:{id:x.id}});
+  if(operations.length)try{outbox.enqueue(operations)}catch{toast('Не удалось сохранить очередь отправки — проверь память устройства')}
 }
 function cloudRowsToLocal(items){
   const out={movies:[],thanks:[],wishes:[],ideas:[],likes:[],moments:[]};
   for(const x of items||[]){
-    const base={id:x.id,author:x.author_name,createdAt:x.created_at};
+    const base={id:x.id,author:x.author_name,createdAt:x.created_at,requestId:x.data?.client_request_id};
     if(x.kind==='movies')out.movies.push({...base,t:x.text});
     if(x.kind==='thanks')out.thanks.push({...base,refId:x.data?.refId||x.id,text:x.text,date:x.created_at,received:x.author_name!==currentAuthor()});
     if(x.kind==='wishlist')out.wishes.push({...base,t:x.text,type:x.emoji||'🎁',done:Boolean(x.data?.done)});
@@ -68,11 +77,9 @@ function sameData(a,b){return JSON.stringify(a)===JSON.stringify(b)}
 function stableMediaUrl(value=''){const s=String(value||'');if(!s||s.startsWith('data:'))return s;try{const u=new URL(s);return u.origin+u.pathname}catch{return s.split('?')[0]}}
 function comparableCloudData(key,value){if(key!=='moments')return value;return (Array.isArray(value)?value:[]).map(x=>({...x,img:stableMediaUrl(x.img)}))}
 function renderCloudKey(key){({thanks:renderThanks,wishes:renderWishes,ideas:renderIdeas,likes:renderLikes,moments:renderMoments,movies:renderMovies}[key]?.())}
-async function syncCloud(){
-  if(!cloudReady||cloudBusy)return;
-  cloudBusy=true;
+function applyCloudData(d){
   try{
-    const d=await cloudApi('sync');
+    cloudReady=true;setCloudStatus(true);
     const nextAuthor=normalizeAuthor(d.author||profile.name||'');
     if(nextAuthor!==currentAuthor()){
       profile={...profile,name:nextAuthor};
@@ -81,7 +88,8 @@ async function syncCloud(){
     }
     const mapped=cloudRowsToLocal(d.items),changedKeys=[];
     cloudApplying=true;
-    for(const [k,v] of Object.entries(mapped)){
+    for(const [k,remote] of Object.entries(mapped)){
+      const v=outbox.merge(k,remote);
       const current=localStore.get(k,[]),exactChanged=!sameData(current,v),semanticChanged=!sameData(comparableCloudData(k,current),comparableCloudData(k,v));
       if(exactChanged)localStore.set(k,v);
       if(semanticChanged)changedKeys.push(k);
@@ -91,17 +99,28 @@ async function syncCloud(){
     cloudApplying=false;
     changedKeys.forEach(renderCloudKey);
     if(unreadChanged)renderIndicators();
-  }catch(e){console.error(e);cloudReady=false;setCloudStatus(false)}finally{cloudApplying=false;cloudBusy=false}
+    if(supportsIdempotentCreate)outbox.retryCreates();else void outbox.flush();
+  }catch(e){console.error(e);setCloudStatus(false)}finally{cloudApplying=false}
+}
+async function syncCloud(){
+  if(!cloudToken)return;
+  try{await window.familyCloud.request('sync',{}, {force:true});void outbox.flush()}catch(e){console.error(e);setCloudStatus(false)}
 }
 async function markCloudRead(section){
   if(!cloudReady||!sectionNames[section])return;
   try{const d=await cloudApi('mark_read',{section});cloudApplying=true;localStore.set('unread',d.unread||{});cloudApplying=false;renderIndicators()}catch(e){console.error(e)}
 }
 function setCloudStatus(ok){const p=$('.local-pill');if(!p)return;p.textContent=ok?'☁️ общая синхронизация':'🔒 только это устройство';p.style.background=ok?'#e6f3e9':'#ebe6df';}
+let unsubscribeCloud=null;
 async function initCloud(){
-  if(!cloudToken){setCloudStatus(false);return}
-  try{const d=await cloudApi('whoami');profile={...profile,name:normalizeAuthor(d.author)};localStore.set('profile',profile);updateProfileUI();cloudReady=true;setCloudStatus(true);await syncCloud();setInterval(syncCloud,10000)}catch(e){console.error(e);localStorage.removeItem('us_family_token');cloudToken='';cloudReady=false;setCloudStatus(false);toast('Ключ устройства не подошёл')}
+  if(!cloudToken){unsubscribeCloud?.();unsubscribeCloud=null;cloudReady=false;setCloudStatus(false);return}
+  if(!unsubscribeCloud)unsubscribeCloud=window.familyCloud.subscribe('sync',applyCloudData);
+  void outbox.flush();
+  const token=cloudToken;
+  try{const d=await cloudApi('whoami');if(token===cloudToken)supportsIdempotentCreate=Boolean(d.capabilities?.idempotent_create)}catch{}
 }
+window.addEventListener('family-cloud-error',()=>setCloudStatus(false));
+window.addEventListener('online',()=>{void outbox.flush()});
 
 // Профиль этого устройства и индикаторы активности.
 let profile=store.get('profile',{});if(!profile||typeof profile!=='object')profile={};
@@ -120,9 +139,9 @@ const extraStyle=document.createElement('style');extraStyle.textContent=`
 .tile{position:relative}.bottom button{position:relative}.identity-bar{margin:10px 4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px}.who-btn{border:0;background:#fff;border-radius:15px;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#333;box-shadow:0 6px 18px rgba(35,30,25,.05);cursor:pointer}.who-btn small{color:#999}.local-pill{font-size:10px;color:#777;background:#ebe6df;border-radius:999px;padding:8px 10px;white-space:nowrap}.activity-signal{display:none;width:calc(100% - 8px);margin:10px 4px 0;border:1px solid #f1d29d;background:#fff7e8;border-radius:18px;padding:12px 14px;text-align:left;align-items:center;gap:11px;color:#574220;cursor:pointer}.activity-signal.show{display:flex}.activity-lamp{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#ffe39c;font-size:21px;box-shadow:0 0 0 0 rgba(240,176,49,.5);animation:lampPulse 1.8s infinite}.activity-signal b{font-size:13px}.activity-signal span.txt{display:block;font-size:10px;color:#8d744b;margin-top:2px}@keyframes lampPulse{0%{box-shadow:0 0 0 0 rgba(240,176,49,.5)}70%{box-shadow:0 0 0 9px rgba(240,176,49,0)}100%{box-shadow:0 0 0 0 rgba(240,176,49,0)}}.notify-badge{position:absolute;right:10px;top:10px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#df5363;color:#fff;font-size:10px;font-weight:900;display:none;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(196,56,73,.28);z-index:5}.notify-badge.show{display:flex}.bottom .notify-badge{right:15px;top:3px;min-width:17px;height:17px;font-size:9px;padding:0 4px}.author-line{display:block;margin-top:4px;font-size:10px!important;color:#9a8f86!important}.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0 10px}.profile-choice{border:1px solid #ece3db;background:#faf7f3;border-radius:17px;padding:16px 10px;font-weight:800;font-size:14px;cursor:pointer}.profile-note{font-size:10px!important;color:#999!important;margin-top:10px!important}.profile-custom{display:flex;gap:8px;margin-top:10px}.profile-custom input{flex:1;min-width:0;border:1px solid #e7ded6;border-radius:14px;padding:12px;font:inherit}.profile-custom button{border:0;background:#17191d;color:#fff;border-radius:14px;padding:0 14px;font-weight:800}.profile-close{display:none;margin-top:9px;width:100%;border:0;background:transparent;color:#888;padding:9px;cursor:pointer}.profile-close.show{display:block}
 `;document.head.appendChild(extraStyle);
 
-const identityBar=document.createElement('div');identityBar.className='identity-bar';identityBar.innerHTML='<button class="who-btn" id="profileButton">👤 <b id="profileName">Кто я?</b> <small>сменить</small></button><div class="local-pill">🔒 только это устройство</div>';
+const identityBar=document.createElement('div');identityBar.className='identity-bar';setHTML(identityBar,'<button class="who-btn" id="profileButton">👤 <b id="profileName">Кто я?</b> <small>сменить</small></button><div class="local-pill">🔒 только это устройство</div>');
 $('#dailyQuote').after(identityBar);
-const activitySignal=document.createElement('button');activitySignal.id='activitySignal';activitySignal.className='activity-signal';activitySignal.innerHTML='<span class="activity-lamp">💡</span><span><b>Есть новое</b><span class="txt" id="activityText"></span></span>';identityBar.after(activitySignal);
+const activitySignal=document.createElement('button');activitySignal.id='activitySignal';activitySignal.className='activity-signal';setHTML(activitySignal,'<span class="activity-lamp">💡</span><span><b>Есть новое</b><span class="txt" id="activityText"></span></span>');identityBar.after(activitySignal);
 document.body.insertAdjacentHTML('beforeend',`<div class="overlay" id="profileSetup"><div class="modal-card"><div class="emoji">👋</div><h3>Кто сейчас здесь?</h3><p>Выбери один раз на этом телефоне. Новые записи будут подписываться этим именем.</p><div class="profile-grid"><button class="profile-choice" data-profile="Алекс">Алекс</button><button class="profile-choice" data-profile="Жена">❤️ Жена</button></div><div class="profile-custom"><input id="profileCustom" maxlength="32" placeholder="Или другое имя"><button id="profileCustomSave">OK</button></div><p class="profile-note">Без персонального ключа записи остаются только на этом устройстве. Персональная ссылка включает общую синхронизацию.</p><button class="profile-close" id="profileClose">Оставить как есть</button></div></div>`);
 function updateProfileUI(){const a=currentAuthor();$('#profileName').textContent=a||'Кто я?';$('#profileClose').classList.toggle('show',Boolean(a))}
 function showProfileSetup(){$('#profileCustom').value=currentAuthor();$('#profileSetup').classList.add('show');updateProfileUI()}
@@ -145,7 +164,7 @@ $$('[data-home]').forEach(b=>b.addEventListener('click',()=>openScreen('home')))
 $$('[data-nav]').forEach(b=>b.addEventListener('click',()=>openScreen(b.dataset.nav)));
 
 const now=new Date();$('#today').textContent=now.toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'long'});$('#momentDate').value=localDateValue(now);
-const quotes=['Сегодня можно ничего грандиозного. Достаточно быть на одной стороне.','Самые хорошие вещи часто выглядят как обычный кофе, обычный ужин и обычное «я дома».','Иногда лучший план — сохранить то, что уже делает нас счастливыми.','Дом — это не стены. Но красивые стены тоже не помешают 😄','Из маленьких привычек обычно и складывается то самое «нам хорошо».'];$('#dailyQuote').innerHTML='<b>Мысль дня.</b> '+quotes[(now.getDate()+now.getMonth())%quotes.length];
+const quotes=['Сегодня можно ничего грандиозного. Достаточно быть на одной стороне.','Самые хорошие вещи часто выглядят как обычный кофе, обычный ужин и обычное «я дома».','Иногда лучший план — сохранить то, что уже делает нас счастливыми.','Дом — это не стены. Но красивые стены тоже не помешают 😄','Из маленьких привычек обычно и складывается то самое «нам хорошо».'];setHTML($('#dailyQuote'),'<b>Мысль дня.</b> '+quotes[(now.getDate()+now.getMonth())%quotes.length]);
 
 // Дизайны
 const likedDesigns=new Set(store.get('designs',[]));
@@ -157,14 +176,14 @@ $('#closeViewer').addEventListener('click',()=>$('#designViewer').classList.remo
 // Фильмы
 const movieDb=[{t:'Стажёр',tag:'warm',d:'Добрый, спокойный фильм с юмором и приятной атмосферой.'},{t:'Повар на колёсах',tag:'warm',d:'Лёгкая история про еду, перемены и удовольствие от простых вещей.'},{t:'Всегда говори «Да»',tag:'fun',d:'Комедия про человека, который решил чаще соглашаться жизни.'},{t:'Отпуск по обмену',tag:'romance',d:'Тёплая романтическая история для спокойного вечера.'},{t:'Терминал',tag:'warm',d:'Добрый фильм с юмором и очень человечной историей.'},{t:'Зачарованная',tag:'fun',d:'Сказочная комедия с романтикой и лёгким настроением.'},{t:'Ла-Ла Ленд',tag:'romance',d:'Музыка, отношения и красивое настроение.'},{t:'Дьявол носит Prada',tag:'fun',d:'Лёгкая, яркая история о работе, стиле и выборе.'},{t:'Невероятная жизнь Уолтера Митти',tag:'warm',d:'Красивый и вдохновляющий фильм о выходе из привычной жизни.'}];
 let movieFilter='all';$$('.movie-filter').forEach(b=>b.addEventListener('click',()=>{$$('.movie-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');movieFilter=b.dataset.filter}));
-$('#pickMovie').addEventListener('click',()=>{const x=pickByTag(movieDb,movieFilter);if(!x)return toast('Для этого фильтра пока нет фильмов');const r=$('#movieResult');r.innerHTML='<b>'+esc(x.t)+'</b><p>'+esc(x.d)+'</p>';r.classList.add('show')});
+$('#pickMovie').addEventListener('click',()=>{const x=pickByTag(movieDb,movieFilter);if(!x)return toast('Для этого фильтра пока нет фильмов');const r=$('#movieResult');setHTML(r,'<b>'+esc(x.t)+'</b><p>'+esc(x.d)+'</p>');r.classList.add('show')});
 $('#addMovie').addEventListener('click',()=>{if(!requireAuthor())return;const v=$('#movieInput').value.trim();if(!v)return toast('Напиши название');const a=store.get('movies');a.unshift(withAuthor({t:v,id:Date.now()}));if(!store.set('movies',a))return toast('Не удалось сохранить');$('#movieInput').value='';renderMovies();toast('Добавил 🎬')});
-function renderMovies(){const a=store.get('movies');$('#movieList').innerHTML=a.length?a.map(x=>`<div class="feed-item"><b>🎬 ${esc(x.t)}</b><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn del-movie" data-id="${x.id}" aria-label="Удалить">×</button></div>`).join(''):'<div class="empty">Пока ничего не добавлено.</div>';$$('.del-movie').forEach(b=>b.onclick=()=>{store.set('movies',a.filter(x=>String(x.id)!==b.dataset.id));renderMovies()})}
+function renderMovies(){const a=store.get('movies');setHTML($('#movieList'),a.length?a.map(x=>`<div class="feed-item"><b>🎬 ${esc(x.t)}</b><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn del-movie" data-id="${x.id}" aria-label="Удалить">×</button></div>`).join(''):'<div class="empty">Пока ничего не добавлено.</div>');$$('.del-movie').forEach(b=>b.onclick=()=>{store.set('movies',a.filter(x=>String(x.id)!==b.dataset.id));renderMovies()})}
 
 // Еда
 const foodDb=[{t:'Пицца',tag:'delivery',e:'🍕',d:'Пусть сегодня будет просто и вкусно.'},{t:'Роллы',tag:'delivery',e:'🍣',d:'Вариант, когда готовить вообще не хочется.'},{t:'Паста',tag:'home',e:'🍝',d:'Можно быстро сделать дома и не усложнять.'},{t:'Картошка + что-нибудь вкусное',tag:'home',e:'🥔',d:'Домашняя классика без изобретений.'},{t:'Шаурма',tag:'fast',e:'🌯',d:'Быстро, понятно и почти всегда работает.'},{t:'Бургеры',tag:'delivery',e:'🍔',d:'Сегодня можно и так.'},{t:'Омлет / яичница',tag:'fast',e:'🍳',d:'Минимум усилий — максимум понятности.'},{t:'Блины или сырники',tag:'sweet',e:'🥞',d:'Почему бы не сделать ужин немного завтраком.'},{t:'Что-нибудь с кофе и десертом',tag:'sweet',e:'☕',d:'Иногда этого вполне достаточно.'},{t:'Домашние бутерброды',tag:'fast',e:'🥪',d:'Без кулинарного героизма.'}];
 let foodFilter='all';$$('.food-filter').forEach(b=>b.addEventListener('click',()=>{$$('.food-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');foodFilter=b.dataset.filter}));
-$('#pickFood').addEventListener('click',()=>{const x=pickByTag(foodDb,foodFilter);if(!x)return toast('Для этого фильтра пока нет вариантов');const r=$('#foodResult');r.innerHTML='<b>'+x.e+' '+esc(x.t)+'</b><p>'+esc(x.d)+'</p>';r.classList.add('show')});
+$('#pickFood').addEventListener('click',()=>{const x=pickByTag(foodDb,foodFilter);if(!x)return toast('Для этого фильтра пока нет вариантов');const r=$('#foodResult');setHTML(r,'<b>'+x.e+' '+esc(x.t)+'</b><p>'+esc(x.d)+'</p>');r.classList.add('show')});
 
 // Спасибо
 let currentThanks='',thanksBusy=false;
@@ -176,35 +195,35 @@ $('#thanksCustom').addEventListener('input',e=>{currentThanks=makeThanksText('',
 function saveThanks(msg,received=false,refId='',author=''){const old=store.get('thanks');const item={id:Date.now(),refId,text:msg,date:new Date().toISOString(),received,author:received?normalizeAuthor(author):currentAuthor(),createdAt:new Date().toISOString()};const next=addUniqueThanks(old,item);if(next.length===old.length)return false;if(!store.set('thanks',next)){toast('Не удалось сохранить');return false}renderThanks();return true}
 $('#saveThanks').addEventListener('click',()=>{if(!currentThanks||!requireAuthor())return;saveThanks(currentThanks,false,makeMessageId());resetThanks();toast(cloudReady?'Отправил в общую банку 💌':'Добавил в банку 💌')});
 $('#shareThanks').addEventListener('click',async()=>{const author=requireAuthor();if(!currentThanks||thanksBusy||!author)return;thanksBusy=true;updateThanksButtons();const msg=currentThanks,id=makeMessageId(),date=new Date().toISOString();const payload=encodeThanksPayload({id,text:msg,date,author});const url=location.origin+location.pathname+'#thanks='+payload;try{if(navigator.share){await navigator.share({title:`Сообщение от ${author} ❤️`,text:msg,url});saveThanks(msg,false,id,author);resetThanks();toast('Отправлено 💌')}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(msg+'\n'+url);saveThanks(msg,false,id,author);resetThanks();toast('Сообщение и ссылка скопированы')}else{toast('На этом устройстве нет функции «Поделиться»')}}catch(e){if(e?.name!=='AbortError')toast('Не получилось поделиться')}finally{thanksBusy=false;updateThanksButtons()}});
-function renderThanks(){const a=store.get('thanks');$('#thanksCount').textContent=a.length?a.length+' сообщений':'';$('#thanksFeed').innerHTML=a.length?a.map(x=>{const au=authorLabel(x);return `<div class="feed-item"><b>${x.received?(au?'💌 От '+esc(au):'💌 Получено'):(au?'❤️ '+esc(au):'❤️ Спасибо')}</b><p>${esc(x.text)}</p><time>${new Date(x.date).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time></div>`}).join(''):'<div class="empty">Здесь будут копиться маленькие «спасибо».</div>'}
+function renderThanks(){const a=store.get('thanks');$('#thanksCount').textContent=a.length?a.length+' сообщений':'';setHTML($('#thanksFeed'),a.length?a.map(x=>{const au=authorLabel(x);return `<div class="feed-item"><b>${x.received?(au?'💌 От '+esc(au):'💌 Получено'):(au?'❤️ '+esc(au):'❤️ Спасибо')}</b><p>${esc(x.text)}</p><time>${new Date(x.date).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time></div>`}).join(''):'<div class="empty">Здесь будут копиться маленькие «спасибо».</div>')}
 function checkIncoming(){if(!location.hash.startsWith('#thanks='))return;try{const d=decodeThanksPayload(location.hash.slice(8));$('#receivedText').textContent=d.text;const h=$('#received .modal-card h3');if(h)h.textContent=d.author?`${d.author} говорит спасибо`:'Тебе сказали спасибо';$('#received').classList.add('show');window.__incomingThanks=d}catch{history.replaceState(null,'',location.pathname+location.search)}}
 $('#closeReceived').addEventListener('click',()=>{const d=window.__incomingThanks;if(d)saveThanks(d.text,true,d.id||('legacy:'+d.date+':'+d.text),d.author);window.__incomingThanks=null;$('#received').classList.remove('show');history.replaceState(null,'',location.pathname+location.search);openScreen('thanks');toast('Сохранил сообщение ❤️')});
 window.addEventListener('hashchange',checkIncoming);resetThanks();checkIncoming();
 
 // Хотелки
 $('#addWish').addEventListener('click',()=>{if(!requireAuthor())return;const t=$('#wishText').value.trim();if(!t)return toast('Напиши хотелку');const a=store.get('wishes');a.unshift(withAuthor({id:Date.now(),t,type:$('#wishType').value,done:false}));if(!store.set('wishes',a))return toast('Не удалось сохранить');$('#wishText').value='';renderWishes()});
-function renderWishes(){const a=store.get('wishes');$('#wishList').innerHTML=a.length?a.map(x=>`<div class="list-item ${x.done?'done':''}"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?esc(authorLabel(x))+' · ':''}${x.done?'исполнено':'хочется'}</span></div><div class="row"><button class="icon-btn wish-done" data-id="${x.id}">${x.done?'↩':'✓'}</button><button class="icon-btn wish-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty">Хотелок пока нет. Подозрительно 😄</div>';$$('.wish-done').forEach(b=>b.onclick=()=>{const x=a.find(i=>String(i.id)===b.dataset.id);if(!x)return;x.done=!x.done;store.set('wishes',a);renderWishes()});$$('.wish-del').forEach(b=>b.onclick=()=>{store.set('wishes',a.filter(i=>String(i.id)!==b.dataset.id));renderWishes()})}
+function renderWishes(){if(document.getElementById('cu2WishActive'))return;const a=store.get('wishes');setHTML($('#wishList'),a.length?a.map(x=>`<div class="list-item ${x.done?'done':''}"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?esc(authorLabel(x))+' · ':''}${x.done?'исполнено':'хочется'}</span></div><div class="row"><button class="icon-btn wish-done" data-id="${x.id}">${x.done?'↩':'✓'}</button><button class="icon-btn wish-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty">Хотелок пока нет. Подозрительно 😄</div>');$$('.wish-done').forEach(b=>b.onclick=()=>{const x=a.find(i=>String(i.id)===b.dataset.id);if(!x)return;x.done=!x.done;store.set('wishes',a);renderWishes()});$$('.wish-del').forEach(b=>b.onclick=()=>{store.set('wishes',a.filter(i=>String(i.id)!==b.dataset.id));renderWishes()})}
 
 // Идеи
 let ideaType='👀';$$('.idea-type').forEach(b=>b.addEventListener('click',()=>{$$('.idea-type').forEach(x=>x.classList.remove('active'));b.classList.add('active');ideaType=b.dataset.type}));
 $('#addIdea').addEventListener('click',()=>{if(!requireAuthor())return;const t=$('#ideaText').value.trim();if(!t)return toast('Напиши идею');const a=store.get('ideas');a.unshift(withAuthor({id:Date.now(),t,type:ideaType,done:false}));if(!store.set('ideas',a))return toast('Не удалось сохранить');$('#ideaText').value='';renderIdeas()});
-function renderIdeas(){const a=store.get('ideas');$('#ideaList').innerHTML=a.length?a.map(x=>`<div class="list-item ${x.done?'done':''}"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?esc(authorLabel(x))+' · ':''}${x.done?'готово':'в списке'}</span></div><div class="row"><button class="icon-btn idea-done" data-id="${x.id}">${x.done?'↩':'✓'}</button><button class="icon-btn idea-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty">Здесь будут жить ваши «надо бы как-нибудь...»</div>';$$('.idea-done').forEach(b=>b.onclick=()=>{const x=a.find(i=>String(i.id)===b.dataset.id);if(!x)return;x.done=!x.done;store.set('ideas',a);renderIdeas()});$$('.idea-del').forEach(b=>b.onclick=()=>{store.set('ideas',a.filter(i=>String(i.id)!==b.dataset.id));renderIdeas()})}
+function renderIdeas(){if(document.getElementById('cu2IdeasActive'))return;const a=store.get('ideas');setHTML($('#ideaList'),a.length?a.map(x=>`<div class="list-item ${x.done?'done':''}"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?esc(authorLabel(x))+' · ':''}${x.done?'готово':'в списке'}</span></div><div class="row"><button class="icon-btn idea-done" data-id="${x.id}">${x.done?'↩':'✓'}</button><button class="icon-btn idea-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty">Здесь будут жить ваши «надо бы как-нибудь...»</div>');$$('.idea-done').forEach(b=>b.onclick=()=>{const x=a.find(i=>String(i.id)===b.dataset.id);if(!x)return;x.done=!x.done;store.set('ideas',a);renderIdeas()});$$('.idea-del').forEach(b=>b.onclick=()=>{store.set('ideas',a.filter(i=>String(i.id)!==b.dataset.id));renderIdeas()})}
 
 // Нам нравится
 $('#addLike').addEventListener('click',()=>{if(!requireAuthor())return;const t=$('#likeText').value.trim();if(!t)return toast('Напиши, что нравится');const a=store.get('likes');a.unshift(withAuthor({id:Date.now(),t,type:$('#likeType').value}));if(!store.set('likes',a))return toast('Не удалось сохранить');$('#likeText').value='';renderLikes()});
-function renderLikes(){const a=store.get('likes');$('#likeList').innerHTML=a.length?a.map(x=>`<div class="list-item"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'нам нравится'}</span></div><button class="icon-btn like-del" data-id="${x.id}">×</button></div>`).join(''):'<div class="empty">Пока пусто. Добавляйте сюда всё подряд.</div>';$$('.like-del').forEach(b=>b.onclick=()=>{store.set('likes',a.filter(i=>String(i.id)!==b.dataset.id));renderLikes()})}
+function renderLikes(){if(document.getElementById('cu2LikeCards'))return;const a=store.get('likes');setHTML($('#likeList'),a.length?a.map(x=>`<div class="list-item"><div class="ico">${x.type}</div><div><b>${esc(x.t)}</b><span>${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'нам нравится'}</span></div><button class="icon-btn like-del" data-id="${x.id}">×</button></div>`).join(''):'<div class="empty">Пока пусто. Добавляйте сюда всё подряд.</div>');$$('.like-del').forEach(b=>b.onclick=()=>{store.set('likes',a.filter(i=>String(i.id)!==b.dataset.id));renderLikes()})}
 
 // Моменты
 function compressImage(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=800,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.68))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
 $('#addMoment').addEventListener('click',async()=>{if(!requireAuthor())return;const file=$('#momentPhoto').files[0],text=$('#momentText').value.trim(),date=$('#momentDate').value;if(!file)return toast('Сначала выбери фото');if(!file.type.startsWith('image/'))return toast('Нужна картинка');$('#addMoment').disabled=true;try{const img=await compressImage(file),a=store.get('moments');a.unshift(withAuthor({id:Date.now(),img,text,date}));if(!store.set('moments',a.slice(0,8)))return toast('Память браузера заполнена — удали старое фото');$('#momentPhoto').value='';$('#momentText').value='';renderMoments();toast(cloudReady?'Фото отправляется в общее хранилище ❤️':'Момент сохранён ❤️')}catch{toast('Не удалось обработать фото')}finally{$('#addMoment').disabled=false}});
-function renderMoments(){const a=store.get('moments');$('#momentGrid').innerHTML=a.length?a.map(x=>`<div class="moment"><img src="${x.img}" alt="Наш момент"><div class="moment-body"><b>${x.date?new Date(x.date+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):'Наш момент'}</b><p>${esc(x.text||'Без подписи')}</p><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn moment-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty wide-empty">Здесь пока нет фото. Первое всегда самое сложное 🙂</div>';$$('.moment-del').forEach(b=>b.onclick=()=>{store.set('moments',a.filter(i=>String(i.id)!==b.dataset.id));renderMoments()})}
+function renderMoments(){if(document.getElementById('cu2MomentCards'))return;const a=store.get('moments');setHTML($('#momentGrid'),a.length?a.map(x=>`<div class="moment"><img src="${x.img}" alt="Наш момент"><div class="moment-body"><b>${x.date?new Date(x.date+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'}):'Наш момент'}</b><p>${esc(x.text||'Без подписи')}</p><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn moment-del" data-id="${x.id}">×</button></div></div>`).join(''):'<div class="empty wide-empty">Здесь пока нет фото. Первое всегда самое сложное 🙂</div>');$$('.moment-del').forEach(b=>b.onclick=()=>{store.set('moments',a.filter(i=>String(i.id)!==b.dataset.id));renderMoments()})}
 
 // Сюрприз
 const surprises=[['🤗','Обнять без причины','Никакого повода не нужно. Просто подойди и обними.'],['☕','Сделать что-нибудь приятное','Чай, кофе, вкусняшка — маленькая бытовая забота сегодня считается двойной.'],['📸','Найти старую фотографию','Отправь друг другу случайную старую фотографию, которую давно не видели.'],['💬','Сказать один комплимент','Только настоящий и конкретный: за что именно.'],['❤️','Написать «я тебя люблю»','Без объяснений и без повода. Иногда трёх слов достаточно.'],['🍫','Маленький вкусный сюрприз','Купить или оставить что-нибудь вкусное друг для друга.'],['😂','Найти что-нибудь смешное','Мем, старую историю или видео, которое точно заставит второго улыбнуться.'],['📝','Одно короткое спасибо','За совершенно обычную вещь, которую обычно не замечаем.']];
 $('#surpriseBtn').addEventListener('click',()=>{const x=surprises[Math.floor(Math.random()*surprises.length)];$('#surpriseEmoji').textContent=x[0];$('#surpriseTitle').textContent=x[1];$('#surpriseText').textContent=x[2]});
 
 window.addEventListener('storage',e=>{
-  if(e.key==='us_family_token'){cloudToken=localStorage.getItem('us_family_token')||'';initCloud();return}
+  if(e.key==='us_family_token'){cloudToken=localStorage.getItem('us_family_token')||'';supportsIdempotentCreate=false;initCloud();return}
   if(e.key==='us_profile'){profile=store.get('profile',{});updateProfileUI();return}
   if(e.key==='us_unread'){renderIndicators();return}
   const section=storageSections[e.key];if(!section)return;

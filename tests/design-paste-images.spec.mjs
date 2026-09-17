@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 const unread={thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0};

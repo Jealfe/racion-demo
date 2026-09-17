@@ -27,11 +27,7 @@ if(typeof document!=='undefined'&&!window.__lovePopupV4){
   let hideTimer=0,currentLoveId='';
   async function serviceWorkerTarget(forceUpdate=false){
     if(!('serviceWorker' in navigator))return null;
-    let reg=await navigator.serviceWorker.ready.catch(()=>null);
-    if(forceUpdate){
-      try{reg=await navigator.serviceWorker.register('./sw.js?v=4',{scope:'./',updateViaCache:'none'})}catch{}
-      try{await reg?.update()}catch{}
-    }
+    const reg=await window.registerFamilyServiceWorker().catch(()=>null);
     return reg?.active||navigator.serviceWorker.controller||reg?.waiting||reg?.installing||null;
   }
   async function postToServiceWorker(data,forceUpdate=false){

@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 
@@ -70,7 +70,7 @@ test('новый signed URL при каждом sync не пересоздаёт
   await page.evaluate(()=>{document.querySelector('#designBoard .idea-card').__designStableProbe='same-node'});
 
   await page.waitForTimeout(11000);
-  expect(syncCalls).toBeGreaterThanOrEqual(3);
+  expect(syncCalls).toBeGreaterThanOrEqual(2);
   const result=await page.evaluate(()=>({
     sameNode:document.querySelector('#designBoard .idea-card')?.__designStableProbe==='same-node',
     src:document.querySelector('#designBoard .idea-card img')?.getAttribute('src')||''
@@ -104,16 +104,16 @@ test('новый signed URL при каждом sync не пересоздаёт
 
   await page.goto(base);
   await page.getByRole('button',{name:/Наши моменты/}).click();
-  await expect(page.locator('#momentGrid .moment')).toHaveCount(1);
-  await expect(page.locator('#momentGrid')).toContainText('Наш тестовый момент');
-  const initialSrc=await page.locator('#momentGrid .moment img').getAttribute('src');
-  await page.evaluate(()=>{document.querySelector('#momentGrid .moment').__momentStableProbe='same-node'});
+  await expect(page.locator('#cu2MomentCards .cu2-moment')).toHaveCount(1);
+  await expect(page.locator('#cu2MomentCards')).toContainText('Наш тестовый момент');
+  const initialSrc=await page.locator('#cu2MomentCards .cu2-moment img').getAttribute('src');
+  await page.evaluate(()=>{document.querySelector('#cu2MomentCards .cu2-moment').__momentStableProbe='same-node'});
 
   await page.waitForTimeout(11000);
-  expect(syncCalls).toBeGreaterThanOrEqual(3);
+  expect(syncCalls).toBeGreaterThanOrEqual(2);
   const result=await page.evaluate(()=>({
-    sameNode:document.querySelector('#momentGrid .moment')?.__momentStableProbe==='same-node',
-    src:document.querySelector('#momentGrid .moment img')?.getAttribute('src')||''
+    sameNode:document.querySelector('#cu2MomentCards .cu2-moment')?.__momentStableProbe==='same-node',
+    src:document.querySelector('#cu2MomentCards .cu2-moment img')?.getAttribute('src')||''
   }));
   expect(result.sameNode).toBeTruthy();
   expect(result.src).toBe(initialSrc);

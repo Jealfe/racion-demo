@@ -1,0 +1,16 @@
+{
+  "name": "racion-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test tests/*.test.mjs",
+    "test:smoke": "node tests/smoke.mjs",
+    "test:browser": "playwright test",
+    "test": "npm run test:unit && npm run test:smoke && npm run test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1",
+    "typescript": "5.9.3"
+  }
+}

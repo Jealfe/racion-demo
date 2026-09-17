@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 import {readFileSync} from 'node:fs';
 
 const root=new URL('../',import.meta.url);
@@ -15,7 +15,8 @@ test('push восстанавливается после перезапуска 
   expect(recovery).toMatch(/pageshow/);
   expect(recovery).toMatch(/visibilitychange/);
   expect(recovery).toMatch(/controllerchange/);
-  expect(recovery).toMatch(/updateViaCache:'none'/);
+  expect(recovery).toMatch(/registerFamilyServiceWorker/);
+  expect(readFileSync(new URL('../cloud-runtime.mjs',import.meta.url),'utf8')).toMatch(/updateViaCache:'none'/);
 });
 
 test('love popup по центру и повторно поднимается после холодного запуска',()=>{
@@ -25,7 +26,7 @@ test('love popup по центру и повторно поднимается п
   expect(popup).toMatch(/translate\(-50%,-50%\)/);
   expect(popup).toMatch(/\[80,500,1400,3200,6500\]/);
   expect(popup).toMatch(/replayPending/);
-  expect(popup).toMatch(/sw\.js\?v=4/);
+  expect(popup).toMatch(/registerFamilyServiceWorker/);
   expect(sw).toMatch(/function isLovePush/);
   expect(sw).toMatch(/data\.kind==='love'/);
   expect(sw).toMatch(/await rememberLove\(item\)/);

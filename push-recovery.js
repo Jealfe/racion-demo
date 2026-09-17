@@ -20,14 +20,7 @@ if(typeof document!=='undefined'&&!window.__pushRecoveryV1){
     const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json','x-family-token':tk},body:JSON.stringify({action:'push_subscribe',subscription:subscription.toJSON()})});
     return r.ok;
   }
-  async function freshRegistration(){
-    if(!('serviceWorker' in navigator))return null;
-    let reg=null;
-    try{reg=await navigator.serviceWorker.register('./sw.js?v=4',{scope:'./',updateViaCache:'none'})}catch{}
-    if(!reg)reg=await navigator.serviceWorker.ready.catch(()=>null);
-    if(reg){try{await reg.update()}catch{}}
-    return reg;
-  }
+  async function freshRegistration(){return window.registerFamilyServiceWorker()}
   async function repairPush(force=false){
     if(repairing||!token()||!('Notification' in window)||!('PushManager' in window)||!('serviceWorker' in navigator))return false;
     if(Notification.permission!=='granted')return false;

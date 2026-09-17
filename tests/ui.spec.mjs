@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './test-fixture.mjs';
 
 const base='http://127.0.0.1:8000/';
 async function confirmDelete(page,trigger){
@@ -78,8 +78,8 @@ test('новая запись другого автора включает ла�
   await expect(page.locator('[data-open="wishlist"] .notify-badge')).toHaveClass(/show/);
   await expect(page.locator('#activityText')).toContainText('Хотелки: 1');
   await page.locator('[data-open="wishlist"]').click();
-  await expect(page.locator('#wishList')).toContainText('Новая хотелка от жены');
-  await expect(page.locator('#wishList')).toContainText('Жена');
+  await expect(page.locator('#cu2WishActive')).toContainText('Новая хотелка от жены');
+  await expect(page.locator('#cu2WishActive')).toContainText('Жена');
   await expect(page.locator('[data-open="wishlist"] .notify-badge')).not.toHaveClass(/show/);
 });
 
@@ -128,67 +128,7 @@ test('еда и сюрприз выдают результат',async({page})=>{
   await expect(page.locator('#surpriseTitle')).not.toHaveText('Нажми и узнаешь');
 });
 
-test('хотелка остаётся после галочки, возвращается обратно и удаляется только после подтверждения',async({page})=>{
-  await page.getByRole('button',{name:/Хотелки/}).click();
-  await page.locator('#wishText').fill('Кофемашина');
-  await page.locator('#addWish').click();
-  await expect(page.locator('#wishList')).toContainText('Кофемашина');
-  await expect(page.locator('#wishList')).toContainText('Муж');
-  const toggle=page.locator('.wish-done');
-  await toggle.click();
-  await expect(page.locator('#wishList .list-item')).toHaveClass(/done/);
-  await expect(page.locator('#wishList')).toContainText('исполнено');
-  await expect(page.locator('#wishList')).toContainText('Кофемашина');
-  await toggle.click();
-  await expect(page.locator('#wishList .list-item')).not.toHaveClass(/done/);
-  await expect(page.locator('#wishList')).toContainText('хочется');
-  await confirmDelete(page,page.locator('.wish-del'));
-  await expect(page.locator('#wishList')).not.toContainText('Кофемашина');
-});
-
-test('идея остаётся после галочки, возвращается обратно и кнопки не перекрываются',async({page})=>{
-  await page.getByRole('button',{name:/Идеи/}).click();
-  await page.getByRole('button',{name:'🍴 Попробовать'}).click();
-  await page.locator('#ideaText').fill('Новый десерт');
-  await page.locator('#addIdea').click();
-  await expect(page.locator('#ideaList')).toContainText('Новый десерт');
-  await expect(page.locator('#ideaList')).toContainText('Муж');
-  const done=page.locator('#ideaList .idea-done'),del=page.locator('#ideaList .idea-del');
-  const db=await done.boundingBox(),xb=await del.boundingBox();
-  expect(db&&xb&&db.x+db.width<=xb.x).toBeTruthy();
-  await done.click();
-  await expect(page.locator('#ideaList .list-item')).toHaveClass(/done/);
-  await expect(page.locator('#ideaList')).toContainText('готово');
-  await expect(page.locator('#ideaList')).toContainText('Новый десерт');
-  await done.click();
-  await expect(page.locator('#ideaList .list-item')).not.toHaveClass(/done/);
-  await expect(page.locator('#ideaList')).toContainText('в списке');
-  await confirmDelete(page,del);
-  await expect(page.locator('#ideaList')).not.toContainText('Новый десерт');
-});
-
-test('нам нравится добавляется с автором и удаляется после подтверждения',async({page})=>{
-  await page.getByRole('button',{name:/Нам нравится/}).click();
-  await page.locator('#likeText').fill('Песня для нас');
-  await page.locator('#addLike').click();
-  await expect(page.locator('#likeList')).toContainText('Песня для нас');
-  await expect(page.locator('#likeList')).toContainText('Муж');
-  await confirmDelete(page,page.locator('.like-del'));
-  await expect(page.locator('#likeList')).not.toContainText('Песня для нас');
-});
-
-test('момент с картинкой добавляется с автором и удаляется после подтверждения',async({page})=>{
-  await page.getByRole('button',{name:/Наши моменты/}).click();
-  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
-  await page.locator('#momentPhoto').setInputFiles({name:'tiny.png',mimeType:'image/png',buffer:png});
-  await page.locator('#momentText').fill('Тестовый момент');
-  await page.locator('#addMoment').click();
-  await expect(page.locator('#momentGrid')).toContainText('Тестовый момент');
-  await expect(page.locator('#momentGrid')).toContainText('Муж');
-  await confirmDelete(page,page.locator('.moment-del'));
-  await expect(page.locator('#momentGrid')).not.toContainText('Тестовый момент');
-});
-
+// Wishlist, ideas, likes and moments use the v2 screens; their CRUD coverage is in couple-v2.spec.mjs.
 test('облачная запись получает ленту, реакции, комментарии и редактирование своей записи',async({page})=>{
   const id='11111111-1111-4111-8111-111111111111';
   let text='Кофемашина',comments=[],reactions=[];
@@ -212,18 +152,18 @@ test('облачная запись получает ленту, реакции,
   await expect(page.locator('.local-pill')).toContainText('общая синхронизация');
   await expect(page.locator('#activityList')).toContainText('Жена написал(а) комментарий');
   await page.locator('[data-open="wishlist"]').click();
-  await expect(page.locator('#wishList')).toContainText('Кофемашина');
-  await expect(page.locator('#wishList .social-tools')).toBeVisible();
-  await page.locator('#wishList [data-react][data-emoji="❤️"]').click();
-  await expect(page.locator('#wishList [data-react][data-emoji="❤️"]')).toHaveClass(/active/);
-  await page.locator('#wishList [data-comments]').click();
+  await expect(page.locator('#cu2WishActive')).toContainText('Кофемашина');
+  await expect(page.locator('#cu2WishActive .social-tools')).toBeVisible();
+  await page.locator('#cu2WishActive [data-react][data-emoji="❤️"]').click();
+  await expect(page.locator('#cu2WishActive [data-react][data-emoji="❤️"]')).toHaveClass(/active/);
+  await page.locator('#cu2WishActive [data-comments]').click();
   await expect(page.locator('#socialThread')).toHaveClass(/show/);
   await page.locator('#threadInput').fill('Да, посмотрим отзывы');
   await page.locator('#threadSend').click();
   await expect(page.locator('#threadList')).toContainText('Да, посмотрим отзывы');
   await page.locator('[data-social-close="socialThread"]').click();
-  await page.locator('#wishList [data-edit]').click();
+  await page.locator('#cu2WishActive [data-edit]').click();
   await page.locator('#editInput').fill('Кофемашина с тихой кофемолкой');
   await page.locator('#editSave').click();
-  await expect(page.locator('#wishList')).toContainText('Кофемашина с тихой кофемолкой');
+  await expect(page.locator('#cu2WishActive')).toContainText('Кофемашина с тихой кофемолкой');
 });
