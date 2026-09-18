@@ -128,9 +128,10 @@ test('каталог фильмов показывает рейтинг и жа�
     if(body.action==='movie_status'){statusCall=body;return route.fulfill({json:{ok:true,status:body.status}})}
     return route.fulfill({json:{ok:true}});
   });
-  await page.evaluate(()=>localStorage.setItem('us_family_token','12345678901234567890123456789012'));
-  await page.reload();
-  await page.waitForFunction(()=>window.__appReady===true);
+  await page.evaluate(()=>{
+    localStorage.setItem('us_family_token','12345678901234567890123456789012');
+    window.dispatchEvent(new StorageEvent('storage',{key:'us_family_token'}));
+  });
   await page.getByRole('button',{name:/Что посмотреть/}).click();
   await page.getByRole('button',{name:'Смешной'}).click();
   await page.locator('#pickMovie').click();
