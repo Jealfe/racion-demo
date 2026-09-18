@@ -7,6 +7,7 @@ create table if not exists public.game_sessions (
   current_author text,
   current_step integer not null default 0 check (current_step >= 0),
   total_steps integer not null check (total_steps in (4,6)),
+  scenario_key text check (scenario_key is null or scenario_key in ('classic','absurd','dialogue','bad_plan','weird_day','date','superpower','trip')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   finished_at timestamptz

@@ -25,8 +25,9 @@ function state(active=null,extra={}){
   return {ok:true,author:'Муж',active,history:extra.history||[],latest_finished:extra.latest_finished||null};
 }
 function active(mode='words',step=0,current='Муж',extra={}){
-  const prompts=mode==='words'?['Кто?','Где оказался?','Что делал?','Что сказал?','Что ответили?','Чем всё закончилось?']:['Нарисуй начало картинки','Продолжи рисунок','Продолжи ещё немного','Заверши рисунок'];
-  return {id:'11111111-1111-4111-8111-111111111111',mode,status:'active',starter_author:'Муж',partner_author:'Жена',current_author:current,current_step:step,total_steps:mode==='words'?6:4,my_turn:current==='Муж',prompt:prompts[step]||'',preview_data:extra.preview_data||null,created_at:'2026-09-17T10:00:00Z'};
+  const prompts=mode==='words'?['Кто?','Где оказался?','Что делал?','Что сказал?','Что ответили?','Чем всё закончилось?']:['Голова','Плечи, туловище и руки','Таз и верх ног','Ноги и обувь'];
+  const hints=mode==='words'?['Например: сосед в халате','','','','','']:['Нарисуй голову, лицо, волосы и шею.','Продолжи от видимого края.','Продолжи тело.','Заверши персонажа.'];
+  return {id:'11111111-1111-4111-8111-111111111111',mode,status:'active',starter_author:'Муж',partner_author:'Жена',current_author:current,current_step:step,total_steps:mode==='words'?6:4,my_turn:current==='Муж',prompt:prompts[step]||'',hint:extra.hint??hints[step]??'',scenario_title:mode==='words'?(extra.scenario_title||'Классическая чепуха'):null,preview_data:extra.preview_data||null,created_at:'2026-09-17T10:00:00Z'};
 }
 
 test('раздел Игры один, переключает Слова и Рисунок и блокирует выбор во время партии',async({page})=>{
@@ -82,9 +83,9 @@ test('последний словесный ход раскрывает всю �
     const body=route.request().postDataJSON();
     if(body.action==='submit'){
       current=state(null,{history:[finished],latest_finished:finished});
-      return route.fulfill({json:{...current,finished:true,result:{ok:true,session:{...finished,status:'finished'},turns}}});
+      return route.fulfill({json:{...current,finished:true,result:{ok:true,session:{...finished,status:'finished',scenario_title:'Классическая чепуха'},scenario_title:'Классическая чепуха',story:'Кот оказался на Луне, пёк блины и спросил: «Где мой тапок?». Ему ответили: «В холодильнике». В итоге все улетели домой.',turns}}});
     }
-    if(body.action==='result')return route.fulfill({json:{ok:true,session:{...finished,status:'finished'},turns}});
+    if(body.action==='result')return route.fulfill({json:{ok:true,session:{...finished,status:'finished',scenario_title:'Классическая чепуха'},scenario_title:'Классическая чепуха',story:'Кот оказался на Луне, пёк блины и спросил: «Где мой тапок?». Ему ответили: «В холодильнике». В итоге все улетели домой.',turns}});
     return route.fulfill({json:current});
   });
   await page.locator('#home [data-open="games"]').click();
@@ -92,9 +93,10 @@ test('последний словесный ход раскрывает всю �
   await page.locator('#gameAnswer').fill('Все улетели домой');
   await page.locator('#gameSubmitWord').click();
   await expect(page.locator('#games')).toContainText('Чепуха готова');
-  await expect(page.locator('.game-story-row')).toHaveCount(6);
-  await expect(page.locator('#games')).toContainText('Кот');
-  await expect(page.locator('#games')).toContainText('Все улетели домой');
+  await expect(page.locator('.game-story-line')).toHaveCount(1);
+  await expect(page.locator('.game-story-line')).toContainText('Кот оказался на Луне');
+  await expect(page.locator('.game-story-line')).toContainText('все улетели домой');
+  await expect(page.locator('.game-story-row')).toHaveCount(0);
 });
 
 test('рисунок показывает границу полоски для партнёра и отправляет только этот край отдельно',async({page})=>{
@@ -112,6 +114,11 @@ test('рисунок показывает границу полоски для �
   await page.locator('#home [data-open="games"]').click();
   const canvas=page.locator('#gameCanvas');
   await expect(canvas).toBeVisible();
+  await expect(page.locator('.game-draw-turn')).toBeVisible();
+  await expect(page.locator('.game-draw-part')).toHaveText('Голова');
+  await expect(page.locator('.game-draw-hint')).toContainText('голову');
+  await expect(canvas).toHaveAttribute('width','720');
+  await expect(canvas).toHaveAttribute('height','900');
   await expect(page.locator('.game-share-guide')).toContainText('ниже увидит партнёр');
   await expect.poll(async()=>canvas.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
   const box=await canvas.evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}});
