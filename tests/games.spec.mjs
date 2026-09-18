@@ -120,6 +120,9 @@ test('рисунок показывает границу полоски для �
   await expect(canvas).toHaveAttribute('width','720');
   await expect(canvas).toHaveAttribute('height','900');
   await expect(page.locator('.game-share-guide')).toContainText('ниже увидит партнёр');
+  await expect(page.locator('.game-draw-turn')).toHaveCSS('position','relative');
+  await expect(page.locator('.game-tools')).toHaveCSS('position','static');
+  await expect(page.locator('#gameSubmitDrawing')).toHaveCSS('position','static');
   await expect.poll(async()=>canvas.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
   const box=await canvas.evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}});
   expect(box.height).toBeGreaterThan(0);
