@@ -175,8 +175,50 @@ $('#closeViewer').addEventListener('click',()=>$('#designViewer').classList.remo
 
 // Фильмы
 const movieDb=[{t:'Стажёр',tag:'warm',d:'Добрый, спокойный фильм с юмором и приятной атмосферой.'},{t:'Повар на колёсах',tag:'warm',d:'Лёгкая история про еду, перемены и удовольствие от простых вещей.'},{t:'Всегда говори «Да»',tag:'fun',d:'Комедия про человека, который решил чаще соглашаться жизни.'},{t:'Отпуск по обмену',tag:'romance',d:'Тёплая романтическая история для спокойного вечера.'},{t:'Терминал',tag:'warm',d:'Добрый фильм с юмором и очень человечной историей.'},{t:'Зачарованная',tag:'fun',d:'Сказочная комедия с романтикой и лёгким настроением.'},{t:'Ла-Ла Ленд',tag:'romance',d:'Музыка, отношения и красивое настроение.'},{t:'Дьявол носит Prada',tag:'fun',d:'Лёгкая, яркая история о работе, стиле и выборе.'},{t:'Невероятная жизнь Уолтера Митти',tag:'warm',d:'Красивый и вдохновляющий фильм о выходе из привычной жизни.'}];
-let movieFilter='all';$$('.movie-filter').forEach(b=>b.addEventListener('click',()=>{$$('.movie-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');movieFilter=b.dataset.filter}));
-$('#pickMovie').addEventListener('click',()=>{const x=pickByTag(movieDb,movieFilter);if(!x)return toast('Для этого фильтра пока нет фильмов');const r=$('#movieResult');setHTML(r,'<b>'+esc(x.t)+'</b><p>'+esc(x.d)+'</p>');r.classList.add('show')});
+const movieGenreRu={Action:'Боевик',Adventure:'Приключения',Animation:'Анимация',Biography:'Биография',Comedy:'Комедия',Crime:'Криминал',Drama:'Драма',Family:'Семейный',Fantasy:'Фэнтези',History:'История',Horror:'Ужасы',Music:'Музыка',Musical:'Мюзикл',Mystery:'Мистика',Romance:'Мелодрама','Sci-Fi':'Фантастика',Sport:'Спорт',Thriller:'Триллер',War:'Военный',Western:'Вестерн'};
+let movieFilter='all',currentCatalogMovie=null,movieBusy=false;
+$$('.movie-filter').forEach(b=>b.addEventListener('click',()=>{$$('.movie-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');movieFilter=b.dataset.filter}));
+function movieGenres(genres=[]){return (genres||[]).map(x=>movieGenreRu[x]||x).join(', ')}
+function renderCatalogMovie(x,remaining){
+  currentCatalogMovie=x;
+  const r=$('#movieResult');
+  const meta=[x.year?`${x.year}`:'',x.imdb_rating?`⭐ IMDb ${x.imdb_rating}`:'',movieGenres(x.genres)].filter(Boolean).join(' · ');
+  setHTML(r,`<b>🎬 ${esc(x.title)}</b><p style="margin-top:5px;font-size:10px;color:#8d8580">${esc(meta)}</p><p style="margin-top:8px">${esc(x.description||'Без описания')}</p><div class="row" style="margin-top:12px"><button class="btn secondary" id="movieWatched">✓ Просмотрено</button><button class="btn secondary" id="movieHide">Не предлагать</button></div>${Number.isFinite(Number(remaining))?`<p style="margin-top:8px;font-size:9px;color:#aaa">В этом фильтре осталось вариантов: ${Number(remaining)}</p>`:''}`);
+  r.classList.add('show');
+  $('#movieWatched')?.addEventListener('click',()=>markCatalogMovie('watched'));
+  $('#movieHide')?.addEventListener('click',()=>markCatalogMovie('hidden'));
+}
+async function pickMovie(){
+  if(movieBusy)return;
+  movieBusy=true;$('#pickMovie').disabled=true;
+  try{
+    if(cloudToken){
+      const d=await cloudApi('movie_pick',{filter:movieFilter});
+      if(!d.movie){currentCatalogMovie=null;const r=$('#movieResult');setHTML(r,'<b>Подходящих фильмов больше нет</b><p>Все фильмы этого фильтра уже просмотрены или скрыты.</p>');r.classList.add('show');return}
+      renderCatalogMovie(d.movie,d.remaining);
+      return;
+    }
+    const x=pickByTag(movieDb,movieFilter);if(!x)return toast('Для этого фильтра пока нет фильмов');
+    currentCatalogMovie=null;const r=$('#movieResult');setHTML(r,'<b>'+esc(x.t)+'</b><p>'+esc(x.d)+'</p>');r.classList.add('show');
+  }catch(e){console.error(e);toast('Не удалось выбрать фильм из общей базы')}
+  finally{movieBusy=false;$('#pickMovie').disabled=false}
+}
+async function markCatalogMovie(status){
+  if(!currentCatalogMovie||movieBusy)return;
+  movieBusy=true;
+  $('#movieWatched')&&( $('#movieWatched').disabled=true );
+  $('#movieHide')&&( $('#movieHide').disabled=true );
+  try{
+    await cloudApi('movie_status',{movie_id:currentCatalogMovie.id,status});
+    const title=currentCatalogMovie.title;currentCatalogMovie=null;
+    const r=$('#movieResult');
+    setHTML(r,`<b>${status==='watched'?'✓ Отмечено просмотренным':'Убрано из предложений'}</b><p>${esc(title)} больше не будет выпадать в случайном выборе.</p>`);
+    r.classList.add('show');
+    toast(status==='watched'?'Запомнил: просмотрено ✓':'Больше не предложу');
+  }catch(e){console.error(e);toast('Не удалось сохранить статус фильма')}
+  finally{movieBusy=false}
+}
+$('#pickMovie').addEventListener('click',pickMovie);
 $('#addMovie').addEventListener('click',()=>{if(!requireAuthor())return;const v=$('#movieInput').value.trim();if(!v)return toast('Напиши название');const a=store.get('movies');a.unshift(withAuthor({t:v,id:Date.now()}));if(!store.set('movies',a))return toast('Не удалось сохранить');$('#movieInput').value='';renderMovies();toast('Добавил 🎬')});
 function renderMovies(){const a=store.get('movies');setHTML($('#movieList'),a.length?a.map(x=>`<div class="feed-item"><b>🎬 ${esc(x.t)}</b><span class="author-line">${authorLabel(x)?'Добавил(а): '+esc(authorLabel(x)):'Старая запись без автора'}</span><button class="icon-btn del-movie" data-id="${x.id}" aria-label="Удалить">×</button></div>`).join(''):'<div class="empty">Пока ничего не добавлено.</div>');$$('.del-movie').forEach(b=>b.onclick=()=>{store.set('movies',a.filter(x=>String(x.id)!==b.dataset.id));renderMovies()})}
 
