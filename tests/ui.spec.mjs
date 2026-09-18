@@ -118,6 +118,32 @@ test('фильмы выбираются, добавляются с авторо�
   await expect(page.locator('#movieList')).not.toContainText('Наш тестовый фильм');
 });
 
+test('каталог фильмов показывает рейтинг и жанр, а просмотренное больше не предлагается',async({page})=>{
+  let statusCall=null;
+  await page.route('**/functions/v1/family-api',async route=>{
+    let body={};try{body=route.request().postDataJSON()||{}}catch{}
+    if(body.action==='whoami')return route.fulfill({json:{ok:true,author:'Муж',capabilities:{idempotent_create:true}}});
+    if(body.action==='sync')return route.fulfill({json:{ok:true,author:'Муж',items:[],unread:{thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0}}});
+    if(body.action==='movie_pick')return route.fulfill({json:{ok:true,remaining:120,total:500,movie:{id:42,title:'The Grand Budapest Hotel',year:2014,genres:['Adventure','Comedy','Crime'],imdb_rating:8.1,description:'A concierge and his lobby boy become involved in an adventure.',poster_url:'',votes:900000}}});
+    if(body.action==='movie_status'){statusCall=body;return route.fulfill({json:{ok:true,status:body.status}})}
+    return route.fulfill({json:{ok:true}});
+  });
+  await page.evaluate(()=>localStorage.setItem('us_family_token','12345678901234567890123456789012'));
+  await page.reload();
+  await page.waitForFunction(()=>window.__appReady===true);
+  await page.getByRole('button',{name:/Что посмотреть/}).click();
+  await page.getByRole('button',{name:'Смешной'}).click();
+  await page.locator('#pickMovie').click();
+  await expect(page.locator('#movieResult')).toContainText('The Grand Budapest Hotel');
+  await expect(page.locator('#movieResult')).toContainText('IMDb 8.1');
+  await expect(page.locator('#movieResult')).toContainText('Комедия');
+  await expect(page.locator('#movieWatched')).toBeVisible();
+  await expect(page.locator('#movieHide')).toBeVisible();
+  await page.locator('#movieWatched').click();
+  await expect(page.locator('#movieResult')).toContainText('больше не будет выпадать');
+  expect(statusCall).toMatchObject({action:'movie_status',movie_id:42,status:'watched'});
+});
+
 test('еда и сюрприз выдают результат',async({page})=>{
   await page.getByRole('button',{name:/Что поесть/}).click();
   await page.getByRole('button',{name:'Быстро'}).click();
