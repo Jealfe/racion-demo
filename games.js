@@ -122,8 +122,9 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   }
   function resultHTML(result){
     const s=result.session||{},turns=result.turns||[];
-    const body=s.mode==='drawing'?`<div class="game-drawing-result">${turns.map(t=>t.image_url?`<img src="${esc(t.image_url)}" alt="Фрагмент ${Number(t.step)+1}">`:'').join('')}</div>`:`<div class="game-story">${turns.map(t=>`<div class="game-story-row"><small>${esc(t.prompt)}</small><b>${esc(t.text)}</b><span class="game-author">${esc(t.author_name)}</span></div>`).join('')}</div>`;
-    return `<div class="game-card center"><div class="game-big">🎉</div><h3 class="game-result-title">Чепуха готова</h3><p>${s.mode==='drawing'?'Вот ваш общий рисунок целиком.':'Теперь можно прочитать всю историю целиком.'}</p>${body}<div class="game-actions"><button class="game-soft" id="gameDismissResult">Новая игра</button></div></div>${historyHTML(state.history||[])}`;
+    const fallbackStory=turns.map(t=>String(t.text||'').trim()).filter(Boolean).join('. ');
+    const body=s.mode==='drawing'?`<div class="game-drawing-result">${turns.map(t=>t.image_url?`<img src="${esc(t.image_url)}" alt="Фрагмент ${Number(t.step)+1}">`:'').join('')}</div>`:`<div class="game-story-line"><small>${esc(result.scenario_title||s.scenario_title||'Словесная чепуха')}</small><p>${esc(result.story||fallbackStory)}</p></div>`;
+    return `<div class="game-card center"><div class="game-big">🎉</div><h3 class="game-result-title">Чепуха готова</h3><p>${s.mode==='drawing'?'Вот ваш общий персонаж целиком.':'Вот что у вас получилось.'}</p>${body}<div class="game-actions"><button class="game-soft" id="gameDismissResult">Новая игра</button></div></div>${historyHTML(state.history||[])}`;
   }
   function noTokenHTML(){return '<div class="game-card center"><div class="game-big">☁️</div><h3>Нужна общая синхронизация</h3><p>Игра идёт между двумя телефонами, поэтому открой приложение по вашей персональной ссылке на этом устройстве.</p></div>'}
 
