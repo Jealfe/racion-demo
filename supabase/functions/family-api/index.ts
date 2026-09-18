@@ -104,6 +104,18 @@ async function sendPush(admin:any, senderName:string|null, payload:any, deviceOn
 function pushPayload(title:string,body:string,kind='home',itemId:string|null=null){
   return {title,body,icon:'./app-icon.svg',badge:'./app-icon.svg',tag:itemId?`item-${itemId}`:`family-${Date.now()}`,url:'./',kind,itemId}
 }
+function movieMatchesFilter(genres:string[],filter:string){
+  const set=new Set((genres||[]).map(x=>String(x).toLowerCase()))
+  if(filter==='fun')return set.has('comedy')||set.has('animation')
+  if(filter==='romance')return set.has('romance')
+  if(filter==='warm')return set.has('family')||set.has('animation')||set.has('comedy')||set.has('romance')
+  return true
+}
+function randomItem<T>(items:T[]){
+  if(!items.length)return null
+  const n=crypto.getRandomValues(new Uint32Array(1))[0]%items.length
+  return items[n]
+}
 
 Deno.serve(async(req)=>{
   if(req.method==='OPTIONS') return new Response('',{headers:cors})
@@ -118,6 +130,30 @@ Deno.serve(async(req)=>{
     const action=String(body.action||'sync')
 
     if(action==='whoami') return json({ok:true,author:device.author_name,capabilities:{idempotent_create:true}})
+    if(action==='movie_pick'){
+      const filter=['all','warm','fun','romance'].includes(String(body.filter||''))?String(body.filter):'all'
+      const [{data:catalog,error:catalogErr},{data:statuses,error:statusErr}]=await Promise.all([
+        admin.from('movie_catalog').select('id,title,year,genres,imdb_rating,description,poster_url,votes').order('imdb_rating',{ascending:false}).order('votes',{ascending:false}).limit(500),
+        admin.from('movie_family_status').select('movie_id,status')
+      ])
+      if(catalogErr||statusErr)throw catalogErr||statusErr
+      const blocked=new Set((statuses||[]).map((x:any)=>String(x.movie_id)))
+      const eligible=(catalog||[]).filter((x:any)=>!blocked.has(String(x.id))&&movieMatchesFilter(x.genres||[],filter))
+      const movie=randomItem(eligible)
+      if(!movie)return json({ok:true,movie:null,remaining:0,total:(catalog||[]).length})
+      return json({ok:true,movie,remaining:eligible.length,total:(catalog||[]).length})
+    }
+    if(action==='movie_status'){
+      const movieId=Number(body.movie_id)
+      const status=String(body.status||'')
+      if(!Number.isInteger(movieId)||movieId<=0||!['watched','hidden'].includes(status))return json({error:'Некорректный статус фильма'},400)
+      const {data:movie,error:movieErr}=await admin.from('movie_catalog').select('id,title').eq('id',movieId).maybeSingle()
+      if(movieErr||!movie)return json({error:'Фильм не найден'},404)
+      const {error}=await admin.from('movie_family_status').upsert({movie_id:movieId,status,marked_by:device.author_name,updated_at:new Date().toISOString()},{onConflict:'movie_id'})
+      if(error)throw error
+      await addActivity(admin,device,status==='watched'?'movie_watched':'movie_hidden','movies',null,movie.title,{movie_id:movieId})
+      return json({ok:true,status})
+    }
     if(action==='sync'){const [items,counts]=await Promise.all([signedItems(admin),unread(admin,device)]);return json({ok:true,author:device.author_name,items,unread:counts})}
     if(action==='social_sync') return json({ok:true,author:device.author_name,...await socialBundle(admin)})
     if(action==='mark_read'){
