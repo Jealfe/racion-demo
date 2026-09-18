@@ -5,10 +5,12 @@ create table if not exists public.movie_catalog (
   source text not null default 'imdb_top_1000_cc0',
   source_key text not null unique,
   title text not null,
+  title_ru text,
   year integer,
   genres text[] not null default '{}',
   imdb_rating numeric(3,1) not null,
   description text not null default '',
+  description_ru text,
   poster_url text,
   votes integer,
   created_at timestamptz not null default now()

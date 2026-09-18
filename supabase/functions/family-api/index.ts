@@ -133,7 +133,7 @@ Deno.serve(async(req)=>{
     if(action==='movie_pick'){
       const filter=['all','warm','fun','romance'].includes(String(body.filter||''))?String(body.filter):'all'
       const [{data:catalog,error:catalogErr},{data:statuses,error:statusErr}]=await Promise.all([
-        admin.from('movie_catalog').select('id,title,year,genres,imdb_rating,description,poster_url,votes').order('imdb_rating',{ascending:false}).order('votes',{ascending:false}).limit(500),
+        admin.from('movie_catalog').select('id,title,title_ru,year,genres,imdb_rating,description,description_ru,poster_url,votes').order('imdb_rating',{ascending:false}).order('votes',{ascending:false}).limit(500),
         admin.from('movie_family_status').select('movie_id,status')
       ])
       if(catalogErr||statusErr)throw catalogErr||statusErr
@@ -141,17 +141,22 @@ Deno.serve(async(req)=>{
       const eligible=(catalog||[]).filter((x:any)=>!blocked.has(String(x.id))&&movieMatchesFilter(x.genres||[],filter))
       const movie=randomItem(eligible)
       if(!movie)return json({ok:true,movie:null,remaining:0,total:(catalog||[]).length})
-      return json({ok:true,movie,remaining:eligible.length,total:(catalog||[]).length})
+      return json({ok:true,movie:{
+        ...movie,
+        original_title:movie.title,
+        title:movie.title_ru||movie.title,
+        description:movie.description_ru||movie.description,
+      },remaining:eligible.length,total:(catalog||[]).length})
     }
     if(action==='movie_status'){
       const movieId=Number(body.movie_id)
       const status=String(body.status||'')
       if(!Number.isInteger(movieId)||movieId<=0||!['watched','hidden'].includes(status))return json({error:'Некорректный статус фильма'},400)
-      const {data:movie,error:movieErr}=await admin.from('movie_catalog').select('id,title').eq('id',movieId).maybeSingle()
+      const {data:movie,error:movieErr}=await admin.from('movie_catalog').select('id,title,title_ru').eq('id',movieId).maybeSingle()
       if(movieErr||!movie)return json({error:'Фильм не найден'},404)
       const {error}=await admin.from('movie_family_status').upsert({movie_id:movieId,status,marked_by:device.author_name,updated_at:new Date().toISOString()},{onConflict:'movie_id'})
       if(error)throw error
-      await addActivity(admin,device,status==='watched'?'movie_watched':'movie_hidden','movies',null,movie.title,{movie_id:movieId})
+      await addActivity(admin,device,status==='watched'?'movie_watched':'movie_hidden','movies',null,movie.title_ru||movie.title,{movie_id:movieId})
       return json({ok:true,status})
     }
     if(action==='sync'){const [items,counts]=await Promise.all([signedItems(admin),unread(admin,device)]);return json({ok:true,author:device.author_name,items,unread:counts})}
