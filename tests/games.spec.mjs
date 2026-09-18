@@ -95,7 +95,7 @@ test('последний словесный ход раскрывает всю �
   await expect(page.locator('#games')).toContainText('Чепуха готова');
   await expect(page.locator('.game-story-line')).toHaveCount(1);
   await expect(page.locator('.game-story-line')).toContainText('Кот оказался на Луне');
-  await expect(page.locator('.game-story-line')).toContainText('Все улетели домой');
+  await expect(page.locator('.game-story-line')).toContainText('все улетели домой');
   await expect(page.locator('.game-story-row')).toHaveCount(0);
 });
 
