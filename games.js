@@ -106,7 +106,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     const history=state.history||[];
     return `<div class="game-hero"><div class="game-hero-top"><div><div class="game-kicker">Чепуха вдвоём</div><h3>Выберите игру</h3><p>Каждый делает ход на своём телефоне. Предыдущие ответы скрыты до финала.</p></div><div class="game-dice">🎲</div></div></div>
       <div class="game-segment" id="gameModeSwitch"><button class="game-mode ${selectedMode==='words'?'active':''}" data-game-mode="words">📝 Слова</button><button class="game-mode ${selectedMode==='drawing'?'active':''}" data-game-mode="drawing">🎨 Рисунок</button></div>
-      <div class="game-card"><h3>${selectedMode==='words'?'Словесная чепуха':'Рисованная чепуха'}</h3><p>${selectedMode==='words'?'6 вопросов по очереди. Чужие ответы раскроются только в конце.':'4 части рисунка. Следующий видит только узкую полоску края предыдущего фрагмента.'}</p><button class="game-primary" id="gameStart">Начать игру</button><p class="game-sync-note">Одновременно может идти только одна общая партия.</p></div>
+      <div class="game-card"><h3>${selectedMode==='words'?'Словесная чепуха':'Рисованная чепуха'}</h3><p>${selectedMode==='words'?'Каждая новая партия случайно выбирает один из 8 сюжетов. Ответы скрыты до общего финала.':'4 части тела по очереди. На телефоне рисование открывается большим полноэкранным редактором.'}</p><button class="game-primary" id="gameStart">Начать игру</button><p class="game-sync-note">Одновременно может идти только одна общая партия.</p></div>
       ${historyHTML(history)}`;
   }
   function historyHTML(items){
@@ -133,6 +133,7 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
     $('#gameStart')?.addEventListener('click',startGame);
     $('#gameSubmitWord')?.addEventListener('click',submitWord);
     $('#gameStop')?.addEventListener('click',stopGame);
+    $('#gameDrawBack')?.addEventListener('click',openHome);
     document.querySelectorAll('[data-game-result]').forEach(b=>b.addEventListener('click',()=>loadResult(b.dataset.gameResult)));
     $('#gameDismissResult')?.addEventListener('click',()=>{dismissedResultId=lastResult?.session?.id||state.latest_finished?.id||'';lastResult=null;render()});
     if($('#gameCanvas'))setupCanvas();
@@ -206,8 +207,8 @@ if(typeof document!=='undefined'&&!window.__familyGamesV1){
   async function submitDrawing(){
     if(busy||!state.active?.my_turn||!canvasState?.hasInk)return;
     const imageData=canvasState.canvas.toDataURL('image/png');
-    const strip=document.createElement('canvas');strip.width=canvasState.canvas.width;strip.height=32;
-    strip.getContext('2d').drawImage(canvasState.canvas,0,canvasState.canvas.height-32,canvasState.canvas.width,32,0,0,strip.width,strip.height);
+    const strip=document.createElement('canvas');strip.width=canvasState.canvas.width;strip.height=80;
+    strip.getContext('2d').drawImage(canvasState.canvas,0,canvasState.canvas.height-80,canvasState.canvas.width,80,0,0,strip.width,strip.height);
     const previewData=strip.toDataURL('image/png');
     setBusy(true);
     try{const d=await api('submit',{session_id:state.active.id,step:state.active.current_step,image_data:imageData,preview_data:previewData});state={author:d.author||state.author,active:d.active||null,history:d.history||state.history,latest_finished:d.latest_finished||state.latest_finished};lastResult=d.result||null;if(!lastResult)await maybeLoadLatest();render()}
