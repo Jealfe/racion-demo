@@ -8,8 +8,131 @@ const cors = {
   'Content-Type': 'application/json; charset=utf-8',
 }
 const enc = new TextEncoder()
-const wordPrompts = ['Кто?','Где оказался?','Что делал?','Что сказал?','Что ответили?','Чем всё закончилось?']
-const drawingPrompts = ['Нарисуй начало картинки','Продолжи рисунок','Продолжи ещё немного','Заверши рисунок']
+const legacyWordScenario = {
+  key:'legacy',
+  title:'Классическая чепуха',
+  prompts:[
+    {q:'Кто?',hint:'Например: сосед в халате'},
+    {q:'Где оказался?',hint:'Например: в магазине ночью'},
+    {q:'Что делал?',hint:'Например: искал потерянный тапок'},
+    {q:'Что сказал?',hint:'Напиши одну короткую фразу'},
+    {q:'Что ответили?',hint:'Ещё одна короткая фраза'},
+    {q:'Чем всё закончилось?',hint:'Например: все уехали есть пельмени'},
+  ],
+  build:(a:string[])=>`Главный герой — ${a[0]}. Место действия — ${a[1]}. Там герой ${a[2]}. Потом прозвучало: «${a[3]}». В ответ: «${a[4]}». А закончилось всё так: ${a[5]}.`,
+}
+const wordScenarios = [
+  {
+    key:'classic', title:'Классическая чепуха',
+    prompts:[
+      {q:'Кто был главным героем?',hint:'Например: сосед в халате'},
+      {q:'Где всё происходило?',hint:'Например: в супермаркете ночью'},
+      {q:'Что герой там делал?',hint:'Например: учился танцевать'},
+      {q:'Что неожиданно произошло?',hint:'Например: появился пингвин'},
+      {q:'Какая фраза вдруг прозвучала?',hint:'Например: Это вообще-то мой велосипед!'},
+      {q:'Чем всё закончилось?',hint:'Например: все поехали есть пельмени'},
+    ],
+    build:(a:string[])=>`Главный герой — ${a[0]}. Всё происходит ${a[1]}. Герой ${a[2]}. Вдруг ${a[3]}. Тут звучит: «${a[4]}». А заканчивается всё так: ${a[5]}.`,
+  },
+  {
+    key:'absurd', title:'Максимальный абсурд',
+    prompts:[
+      {q:'Кто был главным героем?',hint:'Например: бабушка-ниндзя'},
+      {q:'Что у него было с собой?',hint:'Например: огромный арбуз'},
+      {q:'Куда он зачем-то пришёл?',hint:'Например: в салон красоты'},
+      {q:'Кого он там встретил?',hint:'Например: космонавта'},
+      {q:'Что они решили сделать вместе?',hint:'Например: открыть шаурмичную'},
+      {q:'Чем закончилась эта странная история?',hint:'Чем нелепее — тем лучше'},
+    ],
+    build:(a:string[])=>`Главный герой — ${a[0]}. С собой было ${a[1]}. Потом герой зачем-то приходит ${a[2]} и встречает ${a[3]}. Вместе они решают ${a[4]}. А заканчивается всё так: ${a[5]}.`,
+  },
+  {
+    key:'dialogue', title:'Странный диалог',
+    prompts:[
+      {q:'Кто встретился?',hint:'Например: директор и говорящий кот'},
+      {q:'Где они встретились?',hint:'Например: в лифте'},
+      {q:'Что сказал первый?',hint:'Одна короткая реплика'},
+      {q:'Что ответил второй?',hint:'Одна короткая реплика'},
+      {q:'Что произошло сразу после этого?',hint:'Например: отключился свет'},
+      {q:'Чем закончилась встреча?',hint:'Короткий финал'},
+    ],
+    build:(a:string[])=>`${a[0]} встретились ${a[1]}. Первый сказал: «${a[2]}». Второй ответил: «${a[3]}». Сразу после этого ${a[4]}. В итоге ${a[5]}.`,
+  },
+  {
+    key:'bad_plan', title:'Плохой план',
+    prompts:[
+      {q:'Кто придумал план?',hint:'Например: сосед Коля'},
+      {q:'Что он хотел сделать?',hint:'Например: тайком вынести диван'},
+      {q:'Где он собирался это сделать?',hint:'Например: в торговом центре'},
+      {q:'Что пошло не по плану?',hint:'Например: приехал цирк'},
+      {q:'Как пришлось выкручиваться?',hint:'Например: притвориться курьером'},
+      {q:'Чем всё закончилось?',hint:'Короткий финал'},
+    ],
+    build:(a:string[])=>`Автор плана — ${a[0]}. План был такой: ${a[1]}. Место — ${a[2]}. Но ${a[3]}. Пришлось ${a[4]}. В итоге ${a[5]}.`,
+  },
+  {
+    key:'weird_day', title:'Один безумный день',
+    prompts:[
+      {q:'Кто проснулся утром?',hint:'Например: уставший космонавт'},
+      {q:'Где он неожиданно оказался?',hint:'Например: на крыше школы'},
+      {q:'Что первым делом сделал?',hint:'Например: позвонил маме'},
+      {q:'Что странное увидел?',hint:'Например: стадо розовых коз'},
+      {q:'Что после этого решил?',hint:'Например: срочно уехать домой'},
+      {q:'Как закончился его день?',hint:'Короткий финал'},
+    ],
+    build:(a:string[])=>`Утро. Главный герой — ${a[0]}. Проснувшись, герой обнаруживает себя ${a[1]}. Первым делом — ${a[2]}. Потом замечает ${a[3]} и решает ${a[4]}. А день заканчивается так: ${a[5]}.`,
+  },
+  {
+    key:'date', title:'Свидание',
+    prompts:[
+      {q:'Кто пришёл на свидание?',hint:'Можно придумать сразу двоих'},
+      {q:'Куда назначили встречу?',hint:'Например: в зоопарк'},
+      {q:'Что принесли с собой?',hint:'Например: кастрюлю борща'},
+      {q:'Что неловкое произошло?',hint:'Например: перепутали столик'},
+      {q:'Что сказали, пытаясь спасти ситуацию?',hint:'Одна короткая реплика'},
+      {q:'Чем закончилось свидание?',hint:'Романтично или максимально нелепо'},
+    ],
+    build:(a:string[])=>`На свидание пришли: ${a[0]}. Место встречи — ${a[1]}. С собой было ${a[2]}. Но тут ${a[3]}. Чтобы спасти ситуацию, прозвучало: «${a[4]}». В итоге ${a[5]}.`,
+  },
+  {
+    key:'superpower', title:'Суперспособность',
+    prompts:[
+      {q:'Кто внезапно получил суперспособность?',hint:'Например: школьный охранник'},
+      {q:'Какую способность?',hint:'Например: разговаривать с холодильниками'},
+      {q:'Где решил её испытать?',hint:'Например: на свадьбе'},
+      {q:'Что получилось не так?',hint:'Например: исчезли все стулья'},
+      {q:'Кто это заметил и что сказал?',hint:'Например: бабушка крикнула «Я так и знала!»'},
+      {q:'Чем всё закончилось?',hint:'Короткий финал'},
+    ],
+    build:(a:string[])=>`Супергерой дня — ${a[0]}. Новая способность — ${a[1]}. Испытать её решили ${a[2]}, но ${a[3]}. Это заметил: ${a[4]}. В итоге ${a[5]}.`,
+  },
+  {
+    key:'trip', title:'Путешествие',
+    prompts:[
+      {q:'Кто отправился в путешествие?',hint:'Например: дед с попугаем'},
+      {q:'Куда?',hint:'Например: в Исландию'},
+      {q:'Что взял с собой вместо нужной вещи?',hint:'Например: утюг вместо паспорта'},
+      {q:'Кого встретил?',hint:'Например: местного фокусника'},
+      {q:'Во что они ввязались?',hint:'Например: в гонку на тракторах'},
+      {q:'Как вернулись домой?',hint:'Придумай финальную нелепость'},
+    ],
+    build:(a:string[])=>`В путешествие отправляется ${a[0]}. Пункт назначения — ${a[1]}. Вместо нужной вещи с собой оказалось ${a[2]}. Там герой встречает ${a[3]}, и вместе они ввязываются в ${a[4]}. А домой возвращаются так: ${a[5]}.`,
+  },
+]
+const drawingPrompts = [
+  {q:'Голова',hint:'Нарисуй голову, лицо, волосы и шею. Доведи шею до зоны под пунктиром.'},
+  {q:'Плечи, туловище и руки',hint:'Продолжи от видимого края. Нарисуй плечи, корпус и руки. Доведи туловище до зоны под пунктиром.'},
+  {q:'Таз и верх ног',hint:'Продолжи тело: таз, одежду и верхнюю часть ног. Доведи ноги до зоны под пунктиром.'},
+  {q:'Ноги и обувь',hint:'Заверши персонажа: ноги, обувь и любые смешные детали вокруг.'},
+]
+function wordScenario(key:string|null|undefined){
+  return wordScenarios.find(x=>x.key===key)||legacyWordScenario
+}
+function randomWordScenario(){
+  const n=crypto.getRandomValues(new Uint32Array(1))[0]%wordScenarios.length
+  return wordScenarios[n]
+}
+function cleanStory(value:string){return String(value||'').replace(/\s+/g,' ').replace(/\s+([,.!?])/g,'$1').trim()}
 
 function json(data: unknown, status=200){ return new Response(JSON.stringify(data), {status, headers:cors}) }
 function snippet(v:string,n=90){ const s=String(v||'').trim().replace(/\s+/g,' '); return s.length>n?s.slice(0,n-1)+'…':s }
@@ -70,7 +193,9 @@ function pushPayload(title:string,body:string,gameId:string){
 }
 function publicSession(row:any,deviceAuthor:string,previewData:string|null=null){
   if(!row)return null
-  const prompts=row.mode==='words'?wordPrompts:drawingPrompts
+  const scenario=row.mode==='words'?wordScenario(row.scenario_key):null
+  const prompts=row.mode==='words'?scenario.prompts:drawingPrompts
+  const prompt=prompts[row.current_step]||{q:'',hint:''}
   return {
     id:row.id,
     mode:row.mode,
@@ -80,15 +205,18 @@ function publicSession(row:any,deviceAuthor:string,previewData:string|null=null)
     current_author:row.current_author,
     current_step:row.current_step,
     total_steps:row.total_steps,
+    scenario_key:row.scenario_key||null,
+    scenario_title:scenario?.title||null,
     my_turn:row.status==='active'&&row.current_author===deviceAuthor,
-    prompt:prompts[row.current_step]||'',
+    prompt:prompt.q||'',
+    hint:prompt.hint||'',
     preview_data:row.mode==='drawing'&&row.current_author===deviceAuthor?previewData:null,
     created_at:row.created_at,
   }
 }
 async function activeSession(admin:any,deviceAuthor:string){
   const {data,error}=await admin.from('game_sessions')
-    .select('id,mode,status,starter_author,partner_author,current_author,current_step,total_steps,created_at,updated_at')
+    .select('id,mode,status,starter_author,partner_author,current_author,current_step,total_steps,scenario_key,created_at,updated_at')
     .eq('status','active').maybeSingle()
   if(error)throw error
   if(!data)return null
@@ -102,10 +230,10 @@ async function activeSession(admin:any,deviceAuthor:string){
 }
 async function history(admin:any){
   const {data,error}=await admin.from('game_sessions')
-    .select('id,mode,starter_author,partner_author,total_steps,created_at,finished_at')
+    .select('id,mode,starter_author,partner_author,total_steps,scenario_key,created_at,finished_at')
     .eq('status','finished').order('finished_at',{ascending:false}).limit(12)
   if(error)throw error
-  return data||[]
+  return (data||[]).map((x:any)=>({...x,scenario_title:x.mode==='words'?wordScenario(x.scenario_key).title:null}))
 }
 async function statePayload(admin:any,device:{author_name:string}){
   const [active,items]=await Promise.all([activeSession(admin,device.author_name),history(admin)])
@@ -113,7 +241,7 @@ async function statePayload(admin:any,device:{author_name:string}){
 }
 async function resultPayload(admin:any,sessionId:string,deviceAuthor:string){
   const {data:session,error:sErr}=await admin.from('game_sessions')
-    .select('id,mode,status,starter_author,partner_author,total_steps,created_at,finished_at')
+    .select('id,mode,status,starter_author,partner_author,total_steps,scenario_key,created_at,finished_at')
     .eq('id',sessionId).maybeSingle()
   if(sErr)throw sErr
   if(!session)return {error:'Игра не найдена',status:404}
@@ -132,8 +260,11 @@ async function resultPayload(admin:any,sessionId:string,deviceAuthor:string){
       for(const row of rows)row.image_url=row.image_path?urls.get(row.image_path)||null:null
     }
   }
-  const prompts=session.mode==='words'?wordPrompts:drawingPrompts
-  return {ok:true,session,turns:rows.map((row:any)=>({step:row.step,author_name:row.author_name,text:row.text||'',image_url:row.image_url||null,prompt:prompts[row.step]||'',created_at:row.created_at}))}
+  const scenario=session.mode==='words'?wordScenario(session.scenario_key):null
+  const prompts=session.mode==='words'?scenario.prompts:drawingPrompts
+  const mapped=rows.map((row:any)=>({step:row.step,author_name:row.author_name,text:row.text||'',image_url:row.image_url||null,prompt:prompts[row.step]?.q||'',created_at:row.created_at}))
+  const story=session.mode==='words'?cleanStory(scenario.build(mapped.map((x:any)=>x.text))):null
+  return {ok:true,session:{...session,scenario_title:scenario?.title||null},scenario_title:scenario?.title||null,story,turns:mapped}
 }
 
 Deno.serve(async(req)=>{
@@ -158,7 +289,8 @@ Deno.serve(async(req)=>{
       const partner=(devices||[]).map((x:any)=>String(x.author_name||'').trim()).find((name:string)=>name&&name!==device.author_name)
       if(!partner)return json({error:'Второй игрок пока не подключён'},409)
       const totalSteps=mode==='words'?6:4
-      const {data,error}=await admin.from('game_sessions').insert({mode,status:'active',starter_author:device.author_name,partner_author:partner,current_author:device.author_name,current_step:0,total_steps:totalSteps}).select('id').single()
+      const scenario=mode==='words'?randomWordScenario():null
+      const {data,error}=await admin.from('game_sessions').insert({mode,status:'active',starter_author:device.author_name,partner_author:partner,current_author:device.author_name,current_step:0,total_steps:totalSteps,scenario_key:scenario?.key||null}).select('id').single()
       if(error){
         if(error.code==='23505')return json({error:'Игра уже идёт'},409)
         throw error
