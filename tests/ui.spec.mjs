@@ -124,7 +124,7 @@ test('каталог фильмов показывает рейтинг и жа�
     let body={};try{body=route.request().postDataJSON()||{}}catch{}
     if(body.action==='whoami')return route.fulfill({json:{ok:true,author:'Муж',capabilities:{idempotent_create:true}}});
     if(body.action==='sync')return route.fulfill({json:{ok:true,author:'Муж',items:[],unread:{thanks:0,wishlist:0,ideas:0,likes:0,moments:0,movies:0,designs:0}}});
-    if(body.action==='movie_pick')return route.fulfill({json:{ok:true,remaining:120,total:500,movie:{id:42,title:'The Grand Budapest Hotel',year:2014,genres:['Adventure','Comedy','Crime'],imdb_rating:8.1,description:'A concierge and his lobby boy become involved in an adventure.',poster_url:'',votes:900000}}});
+    if(body.action==='movie_pick')return route.fulfill({json:{ok:true,remaining:120,total:500,movie:{id:42,title:'Отель «Гранд Будапешт»',original_title:'The Grand Budapest Hotel',year:2014,genres:['Adventure','Comedy','Crime'],imdb_rating:8.1,description:'Владелец старого отеля вспоминает молодость и легендарного консьержа.',poster_url:'',votes:900000}}});
     if(body.action==='movie_status'){statusCall=body;return route.fulfill({json:{ok:true,status:body.status}})}
     return route.fulfill({json:{ok:true}});
   });
@@ -135,9 +135,11 @@ test('каталог фильмов показывает рейтинг и жа�
   await page.getByRole('button',{name:/Что посмотреть/}).click();
   await page.getByRole('button',{name:'Смешной'}).click();
   await page.locator('#pickMovie').click();
-  await expect(page.locator('#movieResult')).toContainText('The Grand Budapest Hotel');
+  await expect(page.locator('#movieResult')).toContainText('Отель «Гранд Будапешт»');
   await expect(page.locator('#movieResult')).toContainText('IMDb 8.1');
   await expect(page.locator('#movieResult')).toContainText('Комедия');
+  await expect(page.locator('#movieResult')).toContainText('Владелец старого отеля');
+  await expect(page.locator('#movieResult')).not.toContainText('The Grand Budapest Hotel');
   await expect(page.locator('#movieWatched')).toBeVisible();
   await expect(page.locator('#movieHide')).toBeVisible();
   await page.locator('#movieWatched').click();
