@@ -104,7 +104,7 @@ const wordScenarios = [
       {q:'Кто это заметил и что сказал?',hint:'Например: бабушка крикнула «Я так и знала!»'},
       {q:'Чем всё закончилось?',hint:'Короткий финал'},
     ],
-    build:(a:string[])=>`Супергерой дня — ${a[0]}. Новая способность — ${a[1]}. Испытать её решили ${a[2]}, но ${a[3]}. Это заметил: ${a[4]}. В итоге ${a[5]}.`,
+    build:(a:string[])=>`Супергерой дня — ${a[0]}. Новая способность — ${a[1]}. Испытание проходит ${a[2]}, но ${a[3]}. Кто-то это замечает: ${a[4]}. В итоге ${a[5]}.`,
   },
   {
     key:'trip', title:'Путешествие',
@@ -132,7 +132,7 @@ function randomWordScenario(){
   const n=crypto.getRandomValues(new Uint32Array(1))[0]%wordScenarios.length
   return wordScenarios[n]
 }
-function cleanStory(value:string){return String(value||'').replace(/\s+/g,' ').replace(/\s+([,.!?])/g,'$1').trim()}
+function cleanStory(value:string){return String(value||'').replace(/\s+/g,' ').replace(/\s+([,.!?])/g,'$1').replace(/\.{2,}/g,'.').replace(/([!?])\./g,'$1').trim()}
 
 function json(data: unknown, status=200){ return new Response(JSON.stringify(data), {status, headers:cors}) }
 function snippet(v:string,n=90){ const s=String(v||'').trim().replace(/\s+/g,' '); return s.length>n?s.slice(0,n-1)+'…':s }
