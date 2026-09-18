@@ -105,5 +105,5 @@ if(typeof document!=='undefined'&&!window.__lovePopupV4){
   window.__lovePopupV4=true;
   import('./v2-social-bridge.js?v=1').catch(()=>{});
   import('./reminders.js?v=2').catch(()=>{});
-  import('./games.js?v=1').catch(()=>{});
+  import('./games.js?v=2').catch(()=>{});
 }
